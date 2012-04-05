@@ -1,0 +1,5 @@
+bin/
+*.layout
+obj/
+*.db
+*~
