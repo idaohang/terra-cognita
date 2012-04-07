@@ -1,8 +1,25 @@
 #include "testApp.h"
+#include <sqlite3.h>
 
+static int callback(void *NotUsed, int argc, char **argv, char **azColName){
+    NotUsed=0;
+    int i;
+    for(i=0; i<argc; i++){
+       printf("%s = %s\n", azColName[i], argv[i] ? argv[i]: "NULL");
+    }
+    printf("\n");
+    return 0;
+}
+ 
 //--------------------------------------------------------------
 void testApp::setup(){	 
-    alpha = 0;
+    int rc;
+    sqlite3 *pathsdb; // "Paths" Database Handler
+    rc = sqlite3_open("paths.db", &pathsdb);
+    char *error_msg;
+    rc = sqlite3_exec(pathsdb, "select unitx, unity from track_path", callback, 0, &error_msg);
+    sqlite3_close(pathsdb);
+     alpha = 0;
 	counter = 0;
 
     sprintf(eventString, "Alpha"); 

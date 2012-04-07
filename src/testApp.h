@@ -3,13 +3,13 @@
 #include "ofMain.h"
 
 class testApp : public ofBaseApp{
-	
+
 	public:
-		
+
 		void setup();
 		void update();
 		void draw();
-		
+
 		void keyPressed(int key);
 		void keyReleased(int key);
 		void mouseMoved(int x, int y );
@@ -18,9 +18,9 @@ class testApp : public ofBaseApp{
 		void mouseReleased(int x, int y, int button);
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);		
-		
-    
+		void gotMessage(ofMessage msg);
+
+
         ofBlendMode blendMode;
         ofImage rainbow;
         float           alpha;
@@ -28,5 +28,7 @@ class testApp : public ofBaseApp{
 		ofTrueTypeFont 	vagRounded;
 		char eventString[255];
 		char timeString[255];
+	private:
+		int** points;
 };
 
