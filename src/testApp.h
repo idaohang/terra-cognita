@@ -28,7 +28,5 @@ class testApp : public ofBaseApp{
 		ofTrueTypeFont 	vagRounded;
 		char eventString[255];
 		char timeString[255];
-	private:
-		int** points;
 };
 
