@@ -16,7 +16,7 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int *a = new int[2];
     a[0] = (atoi(argv[0]) - 288240000)/150;
     a[1] = (atoi(argv[1]) - 175920000)/150;
-    if(strcmp(argv[0], "0") != 0 && a[0] < 2048 && a[1] > 0 && a[1] < 2048){
+    if(strcmp(argv[0], "0") != 0 && a[0] < 3500 && a[1] > 0 && a[1] < 3500){
         points.push_back(a);
 /*        cout << argv[0];
         cout << ", ";
