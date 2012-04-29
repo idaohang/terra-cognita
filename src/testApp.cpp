@@ -44,9 +44,11 @@ void testApp::setup(){
 	counter = 0;
 
     ofBackground(0,0,0);
-    ofSetColor(255, 255, 255, 16);
-    ofSetLineWidth(400);
+    ofSetColor(255, 255, 255, 10);
+//    ofSetLineWidth(400);
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
+    rainbow.loadImage("point.png");
+    rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);
     viewCoords[0] = 0;
     viewCoords[1] = 0;
     initViewCoords[0] = 0;
@@ -92,7 +94,8 @@ void testApp::draw(){
         cout << points[i][1];
         cout << "\n";*/
         if(abs(points[i][0] - points[i-1][0]) < 10 && abs(points[i][1] - points[i-1][1]) < 10) {
-            ofLine(points[i-1][0]+viewCoords[0], points[i-1][1]+viewCoords[1], points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
+//            ofLine(points[i-1][0]+viewCoords[0], points[i-1][1]+viewCoords[1], points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
+            rainbow.draw(points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
         }
     }
 
@@ -145,18 +148,18 @@ void testApp::mouseDragged(int x, int y, int button){
         initCursorPos[0] = x;
         initCursorPos[1] = y;
         dragging = true;
-        cout << "\n";
+/*        cout << "\n";
         cout << initCursorPos[0];
         cout << ", ";
         cout << initCursorPos[1];
-        cout << "\n\n";
+        cout << "\n\n";*/
     }
     viewCoords[0] = initViewCoords[0] + x - initCursorPos[0]; // Amount of displacement that we should apply to the viewport
     viewCoords[1] = initViewCoords[1] + y - initCursorPos[1];
-    cout << viewCoords[0];
+/*    cout << viewCoords[0];
     cout << ", ";
     cout << viewCoords[1];
-    cout << "\n";
+    cout << "\n";*/
 }
 
 //--------------------------------------------------------------
