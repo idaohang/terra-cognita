@@ -22,11 +22,14 @@ class testApp : public ofBaseApp{
 
 
         ofBlendMode blendMode;
-        ofImage rainbow;
+//        ofImage rainbow;
         float           alpha;
 		float 			counter;
-		ofTrueTypeFont 	vagRounded;
+		int pointWidth, pointHeight;
+		ofTexture texPoint;
+		unsigned char 	* colorAlphaPixels;
+/*		ofTrueTypeFont 	vagRounded;
 		char eventString[255];
-		char timeString[255];
+		char timeString[255];*/
 };
 

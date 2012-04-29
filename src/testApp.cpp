@@ -47,13 +47,35 @@ void testApp::setup(){
     ofSetColor(255, 255, 255, 10);
 //    ofSetLineWidth(400);
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
-    rainbow.loadImage("point.png");
-    rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);
+/*    rainbow.loadImage("point.png");
+    rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);*/
+    pointWidth = 20;
+    pointHeight = pointWidth;
+    texPoint.allocate(pointWidth, pointHeight, GL_RGBA);
+	colorAlphaPixels	= new unsigned char [pointWidth*pointHeight*4];
+    for(int i = 0; i < pointHeight; i++) {
+        for(int j = 0; j < pointWidth; j++) {
+            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
+            int distanceX = abs(j - pointWidth/2);
+            int distanceY = abs(i - pointHeight/2);
+            float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
+            /*cout << distanceToCenter;
+            cout << "\n";*/
+            float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
+            cout << relativeDistanceToCenter;
+            cout << "\n";
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 5*(1 - relativeDistanceToCenter);
+        }
+    }
+    texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     viewCoords[0] = 0;
     viewCoords[1] = 0;
     initViewCoords[0] = 0;
     initViewCoords[1] = 0;
     dragging = false;
+	ofEnableAlphaBlending();
 }
 
 
@@ -68,9 +90,9 @@ void testApp::update(){
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    sprintf(timeString, "uhmmm...");
+/*    sprintf(timeString, "uhmmm...");
 
-/*    ofEnableBlendMode(OF_BLENDMODE_ALPHA);
+    ofEnableBlendMode(OF_BLENDMODE_ALPHA);
 
 	ofSetHexColor(0xffffff);
 	vagRounded.drawString(eventString, 98,198);
@@ -87,15 +109,18 @@ void testApp::draw(){
     ofSetColor(255, 255, 255,255);
 */
 
+	ofSetHexColor(0xffffff);
+
     for(unsigned int i=1; i<points.size(); i++) {
 /*        cout << "Drawing: ";
         cout << points[i][0];
         cout << ", ";
         cout << points[i][1];
         cout << "\n";*/
-        if(abs(points[i][0] - points[i-1][0]) < 10 && abs(points[i][1] - points[i-1][1]) < 10) {
+        if(abs(points[i][0] - points[i-1][0])
+< 10 && abs(points[i][1] - points[i-1][1]) < 10) {
 //            ofLine(points[i-1][0]+viewCoords[0], points[i-1][1]+viewCoords[1], points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
-            rainbow.draw(points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
+            texPoint.draw(points[i][0]+viewCoords[0], points[i][1]+viewCoords[1], pointWidth, pointHeight);
         }
     }
 
