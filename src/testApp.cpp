@@ -14,8 +14,8 @@ int colorChangeStep;
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int *a = new int[2];
-    a[0] = (atoi(argv[0]) - 288240000)/150;
-    a[1] = (atoi(argv[1]) - 175920000)/150;
+    a[0] = (atoi(argv[0]) - 288240000)/250;
+    a[1] = (atoi(argv[1]) - 175920000)/250;
     if(strcmp(argv[0], "0") != 0 && a[0] < 3500 && a[1] > 0 && a[1] < 3500){
         points.push_back(a);
 /*        cout << argv[0];
