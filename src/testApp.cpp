@@ -47,7 +47,7 @@ void testApp::setup(){
     ofBackground(0,0,0);
     ofSetColor(255, 255, 255, 10);
 //    ofSetLineWidth(400);
-    ofEnableBlendMode(OF_BLENDMODE_ALPHA);
+    ofEnableBlendMode(OF_BLENDMODE_ADD);
 /*    rainbow.loadImage("point.png");
     rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);*/
     pointWidth = 20;
