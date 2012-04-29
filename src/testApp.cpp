@@ -10,6 +10,7 @@ int *viewCoords = new int[2]; // Will indicate the coordinates of the current vi
 bool dragging;
 int *initCursorPos = new int[2];
 int *initViewCoords = new int[2];
+int colorChangeStep;
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int *a = new int[2];
@@ -56,16 +57,12 @@ void testApp::setup(){
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
             colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 0;
             colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
             int distanceX = abs(j - pointWidth/2);
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
-            /*cout << distanceToCenter;
-            cout << "\n";*/
             float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            cout << relativeDistanceToCenter;
-            cout << "\n";
             colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 5*(1 - relativeDistanceToCenter);
         }
     }
@@ -76,85 +73,48 @@ void testApp::setup(){
     initViewCoords[1] = 0;
     dragging = false;
 	ofEnableAlphaBlending();
+	colorChangeStep = int(points.size()/256);
+	cout << colorChangeStep;
+	cout << "\n";
+	cout << "\n";
 }
 
 
 //--------------------------------------------------------------
 void testApp::update(){
-/*	counter = counter + 0.033f;
-
-    alpha += 0.01;
-    alpha = (alpha > 1.0) ? 1.0 : alpha;
-*/
+    for(int i = 0; i < pointHeight; i++) {
+        for(int j = 0; j < pointWidth; j++) {
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 0;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
+        }
+    }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
-/*    sprintf(timeString, "uhmmm...");
-
-    ofEnableBlendMode(OF_BLENDMODE_ALPHA);
-
-	ofSetHexColor(0xffffff);
-	vagRounded.drawString(eventString, 98,198);
-
-	ofSetColor(255,122,220);
-	vagRounded.drawString(eventString, 100,200);
-
-	ofSetHexColor(0xffffff);
-	vagRounded.drawString(timeString, 98,98);
-
-	ofSetColor(255,122,220);
-	vagRounded.drawString(timeString, 100,100);
-
-    ofSetColor(255, 255, 255,255);
-*/
-
-	ofSetHexColor(0xffffff);
-
+    ofSetHexColor(0xffffff);
     for(unsigned int i=1; i<points.size(); i++) {
-/*        cout << "Drawing: ";
-        cout << points[i][0];
-        cout << ", ";
-        cout << points[i][1];
-        cout << "\n";*/
+        if(i%colorChangeStep == 0) {
+            for(int i = 0; i < pointHeight; i++) {
+                for(int j = 0; j < pointWidth; j++) {
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 1] += 1;
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 2] -= 1;
+                }
+            }
+            texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
+        }
         if(abs(points[i][0] - points[i-1][0])
 < 10 && abs(points[i][1] - points[i-1][1]) < 10) {
 //            ofLine(points[i-1][0]+viewCoords[0], points[i-1][1]+viewCoords[1], points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
             texPoint.draw(points[i][0]+viewCoords[0], points[i][1]+viewCoords[1], pointWidth, pointHeight);
         }
     }
-
-//    ofDisableBlendMode();
 }
 
 
 //--------------------------------------------------------------
 void testApp::keyPressed  (int key){
-/*
-    switch (key) {
-        case 49:
-            blendMode = OF_BLENDMODE_ALPHA;
-            sprintf(eventString, "Alpha");
-            break;
-        case 50:
-            blendMode = OF_BLENDMODE_ADD;
-            sprintf(eventString, "Add");
-            break;
-        case 51:
-            blendMode = OF_BLENDMODE_MULTIPLY;
-            sprintf(eventString, "Multiply");
-            break;
-        case 52:
-            blendMode = OF_BLENDMODE_SUBTRACT;
-            sprintf(eventString, "Subtract");
-            break;
-        case 53:
-            blendMode = OF_BLENDMODE_SCREEN;
-            sprintf(eventString, "Screen");
-            break;
-        default:
-            break;
-    }*/
+
 }
 
 //--------------------------------------------------------------
