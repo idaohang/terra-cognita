@@ -94,11 +94,11 @@ void testApp::update(){
 void testApp::draw(){
     ofSetHexColor(0xffffff);
     for(unsigned int i=1; i<points.size(); i++) {
-        if(i%colorChangeStep == 0) {
+        if(i%colorChangeStep == 0 && i != 0) {
             for(int i = 0; i < pointHeight; i++) {
                 for(int j = 0; j < pointWidth; j++) {
-                    colorAlphaPixels[(j*pointWidth+i)*4 + 1] += 1;
-                    colorAlphaPixels[(j*pointWidth+i)*4 + 2] -= 1;
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 1] = min(255, colorAlphaPixels[(j*pointWidth+i)*4 + 1] + 1);
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 2] = max(0, colorAlphaPixels[(j*pointWidth+i)*4 + 2] - 1);
                 }
             }
             texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
