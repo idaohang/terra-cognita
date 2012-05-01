@@ -11,6 +11,7 @@ bool dragging;
 int *initCursorPos = new int[2];
 int *initViewCoords = new int[2];
 int colorChangeStep;
+unsigned int pathLength = 0;
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int *a = new int[2];
@@ -82,18 +83,23 @@ void testApp::setup(){
 
 //--------------------------------------------------------------
 void testApp::update(){
+    // Reset the color of the path's texture
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
             colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 0;
             colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
         }
     }
+    // Increase the path's length
+    if(pathLength < points.size() - 80) {
+        pathLength += 80;
+    }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
     ofSetHexColor(0xffffff);
-    for(unsigned int i=1; i<points.size(); i++) {
+    for(unsigned int i=1; i<pathLength; i++) {
         if(i%colorChangeStep == 0 && i != 0) {
             for(int i = 0; i < pointHeight; i++) {
                 for(int j = 0; j < pointWidth; j++) {
