@@ -1,5 +1,4 @@
 bin/
-*.layout
 obj/
 *.db
 *~
