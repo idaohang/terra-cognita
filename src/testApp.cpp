@@ -57,9 +57,9 @@ void testApp::setup(){
 	colorAlphaPixels	= new unsigned char [pointWidth*pointHeight*4];
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 0;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 127;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 127;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 127;
             int distanceX = abs(j - pointWidth/2);
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
@@ -74,45 +74,64 @@ void testApp::setup(){
     initViewCoords[1] = 0;
     dragging = false;
 	ofEnableAlphaBlending();
-	colorChangeStep = int(points.size()/256);
-	cout << colorChangeStep;
-	cout << "\n";
-	cout << "\n";
+	colorChangeStep = 1;
 }
 
 
 //--------------------------------------------------------------
 void testApp::update(){
     // Reset the color of the path's texture
+	colorChangeStep = max(10,int(pathLength/256));
+/*    cout << "colorChangeStep: ";
+	cout << colorChangeStep;
+	cout << "\n";*/
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 0;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 127;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 127;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 127;
         }
     }
+    texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Increase the path's length
-    if(pathLength < points.size() - 80) {
-        pathLength += 80;
+    if(pathLength < points.size() - 40) {
+        pathLength += 40;
     }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
     ofSetHexColor(0xffffff);
+    int prevX = points[0][0], prevY = points[0][1];
     for(unsigned int i=1; i<pathLength; i++) {
-        if(i%colorChangeStep == 0 && i != 0) {
+        if(i > pathLength/2 && i%colorChangeStep == 0 && i != 0) {
+/*            cout << "i:";
+            cout << i;
+            cout << "\n";*/
+            int R = min(255, colorAlphaPixels[0] + 1);
+            int G = max(0, colorAlphaPixels[1] - 1);
+            int B = R;
+/*            cout << R;
+            cout << "\n";
+            cout << G;
+            cout << "\n";
+            cout << B;
+            cout << "\n";*/
             for(int i = 0; i < pointHeight; i++) {
                 for(int j = 0; j < pointWidth; j++) {
-                    colorAlphaPixels[(j*pointWidth+i)*4 + 1] = min(255, colorAlphaPixels[(j*pointWidth+i)*4 + 1] + 1);
-                    colorAlphaPixels[(j*pointWidth+i)*4 + 2] = max(0, colorAlphaPixels[(j*pointWidth+i)*4 + 2] - 1);
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 0] = R;
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 1] = G;
+                    colorAlphaPixels[(j*pointWidth+i)*4 + 2] = B;
                 }
             }
             texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         }
-        if(abs(points[i][0] - points[i-1][0]) < 10 && abs(points[i][1] - points[i-1][1]) < 10) {
-//            ofLine(points[i-1][0]+viewCoords[0], points[i-1][1]+viewCoords[1], points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
-            texPoint.draw(points[i][0]+viewCoords[0], points[i][1]+viewCoords[1], pointWidth, pointHeight);
+        int X = points[i][0], Y = points[i][1];
+        if(abs(X - prevX) < 10 && abs(Y - prevY) < 10) {
+            texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
         }
+        prevX = X;
+        prevY = Y;
     }
 }
 
