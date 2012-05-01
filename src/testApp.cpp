@@ -109,8 +109,7 @@ void testApp::draw(){
             }
             texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         }
-        if(abs(points[i][0] - points[i-1][0])
-< 10 && abs(points[i][1] - points[i-1][1]) < 10) {
+        if(abs(points[i][0] - points[i-1][0]) < 10 && abs(points[i][1] - points[i-1][1]) < 10) {
 //            ofLine(points[i-1][0]+viewCoords[0], points[i-1][1]+viewCoords[1], points[i][0]+viewCoords[0], points[i][1]+viewCoords[1]);
             texPoint.draw(points[i][0]+viewCoords[0], points[i][1]+viewCoords[1], pointWidth, pointHeight);
         }
