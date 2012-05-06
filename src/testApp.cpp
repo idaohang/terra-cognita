@@ -11,20 +11,39 @@ bool dragging;
 int *initCursorPos = new int[2];
 int *initViewCoords = new int[2];
 int colorChangeStep;
+float zoom = 1;
 unsigned int pathLength = 0;
+int initialPointDiameter = 20;
+int pointWidth = initialPointDiameter*zoom;
+int pointHeight = pointWidth;
+unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
+ofTexture texPoint;
+
+
+void rescalePoint() {
+    for(int i = 0; i < pointHeight; i++) {
+        for(int j = 0; j < pointWidth; j++) {
+            int distanceX = abs(j - pointWidth/2);
+            int distanceY = abs(i - pointHeight/2);
+            float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
+            float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 5*(1 - relativeDistanceToCenter);
+        }
+    }
+}
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int *a = new int[2];
-    a[0] = (atoi(argv[0]) - 288240000)/250;
-    a[1] = (atoi(argv[1]) - 175920000)/250;
-    if(strcmp(argv[0], "0") != 0 && a[0] < 3500 && a[1] > 0 && a[1] < 3500){
+    a[0] = (atoi(argv[0]) - 271380000)/200;
+    a[1] = (atoi(argv[1]) - 200380000)/200;
+    if(strcmp(argv[0], "0") != 0){
         points.push_back(a);
 /*        cout << argv[0];
         cout << ", ";
         cout << argv[1];
         cout << "\n";*/
     }
-    a0 = a;
+//    a0 = a;
     return 0;
 }
 
@@ -46,20 +65,23 @@ void testApp::setup(){
 	counter = 0;
 
     ofBackground(0,0,0);
-    ofSetColor(255, 255, 255, 10);
+    ofSetColor(255, 255, 255, 5);
 //    ofSetLineWidth(400);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
 /*    rainbow.loadImage("point.png");
     rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);*/
-    pointWidth = 20;
-    pointHeight = pointWidth;
-    texPoint.allocate(pointWidth, pointHeight, GL_RGBA);
-	colorAlphaPixels	= new unsigned char [pointWidth*pointHeight*4];
+    cout << "pointWidth: ";
+    cout << pointWidth;
+    cout << "\n";
+    cout << "pointHeight: ";
+    cout << pointHeight;
+    cout << "\n";
+    texPoint.allocate(400, 400, GL_RGBA);
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 127;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 127;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 127;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
             int distanceX = abs(j - pointWidth/2);
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
@@ -87,30 +109,33 @@ void testApp::update(){
 	cout << "\n";*/
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 127;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 127;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 127;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
         }
     }
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Increase the path's length
-    if(pathLength < points.size() - 40) {
-        pathLength += 40;
+    if(pathLength < points.size() - 10) {
+        pathLength += 10;
     }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
     ofSetHexColor(0xffffff);
-    int prevX = points[0][0], prevY = points[0][1];
+    int prevX = points[0][0]*zoom, prevY = points[0][1]*zoom;
+    int R = colorAlphaPixels[0];
+    int G = colorAlphaPixels[1];
+    int B = colorAlphaPixels[2];
     for(unsigned int i=1; i<pathLength; i++) {
-        if(i > pathLength/2 && i%colorChangeStep == 0 && i != 0) {
+        if((i > pathLength - 1500 || i > pathLength/2 && pathLength <= 1500) && i%colorChangeStep == 0 && i != 0) {
 /*            cout << "i:";
             cout << i;
             cout << "\n";*/
-            int R = min(255, colorAlphaPixels[0] + 1);
-            int G = max(0, colorAlphaPixels[1] - 1);
-            int B = R;
+            R = max(0, R - 1);
+            G = min(255, G + 1);
+            B = min(192, B + 1);
 /*            cout << R;
             cout << "\n";
             cout << G;
@@ -126,10 +151,16 @@ void testApp::draw(){
             }
             texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         }
-        int X = points[i][0], Y = points[i][1];
-        if(abs(X - prevX) < 10 && abs(Y - prevY) < 10) {
+        int X = points[i][0]*zoom, Y = points[i][1]*zoom;
+/*        cout << "X: ";
+        cout << X;
+        cout << "\n";
+        cout << "Y: ";
+        cout << Y;
+        cout << "\n";*/
+        //if(abs(X - prevX) < 10*zoom && abs(Y - prevY) < 10*zoom) {
             texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-        }
+        //}
         prevX = X;
         prevY = Y;
     }
@@ -143,7 +174,25 @@ void testApp::keyPressed  (int key){
 
 //--------------------------------------------------------------
 void testApp::keyReleased(int key){
-
+    if(key == 43) {
+        zoom *= 1.2;
+        pointWidth = max(float(2), initialPointDiameter*zoom);
+        pointHeight = pointWidth;
+        rescalePoint();
+        viewCoords[0] *= 1.2;
+        viewCoords[1] *= 1.2;
+    }
+    else if(key == 45) {
+        zoom *= 0.8;
+        pointWidth = max(float(2), initialPointDiameter*zoom); // At least 3, so that it doesn't disappear
+        pointHeight = pointWidth;
+        rescalePoint();
+        viewCoords[0] *= 0.8;
+        viewCoords[0] *= 0.8;
+    }
+/*    cout << "zoom: ";
+    cout << zoom;
+    cout << "\n";*/
 }
 
 //--------------------------------------------------------------

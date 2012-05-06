@@ -25,9 +25,6 @@ class testApp : public ofBaseApp{
 //        ofImage rainbow;
         float           alpha;
 		float 			counter;
-		int pointWidth, pointHeight;
-		ofTexture texPoint;
-		unsigned char 	* colorAlphaPixels;
 /*		ofTrueTypeFont 	vagRounded;
 		char eventString[255];
 		char timeString[255];*/
