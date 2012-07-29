@@ -17,9 +17,7 @@ int initialPointDiameter = 20;
 int pointWidth = initialPointDiameter*zoom;
 int pointHeight = pointWidth;
 unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
-//unsigned char 	* colorAlphaPixels2 = new unsigned char [4];
 ofTexture texPoint;
-//ofTexture texMap;
 ofFbo fbo;
 
 
@@ -50,7 +48,6 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName){
         cout << argv[1];
         cout << "\n";*/
     }
-//    a0 = a;
     return 0;
 }
 
@@ -72,18 +69,8 @@ void testApp::setup(){
 	counter = 0;
 
     ofBackground(0,0,0);
-//    ofSetLineWidth(400);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
-/*    rainbow.loadImage("point.png");
-    rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);
-    cout << "pointWidth: ";
-    cout << pointWidth;
-    cout << "\n";
-    cout << "pointHeight: ";
-    cout << pointHeight;
-    cout << "\n";*/
     texPoint.allocate(400, 400, GL_RGBA);
-//    texMap.allocate(3500, 3500, GL_RGBA);
     fbo.allocate(3500, 3500, GL_RGBA);
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
@@ -111,7 +98,6 @@ void testApp::setup(){
 
 //--------------------------------------------------------------
 void testApp::update(){
-//    texMap.loadScreenData(viewCoords[0],viewCoords[1], 3500, 3500);
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Reset the color of the path's texture
 	colorChangeStep = max(10,int(pathLength/256));
@@ -132,7 +118,6 @@ void testApp::draw(){
     int B = colorAlphaPixels[2];
     prevX = points[pathLength - 1][0]*zoom;
     prevY = points[pathLength - 1][1]*zoom;
-//    texMap.draw(0, 0);
     fbo.begin();
     ofSetColor(255, 255, 255);
     for(unsigned int i=pathLength - 80; i<pathLength; i++) {
@@ -181,7 +166,6 @@ void testApp::draw(){
         cout << Y;
         cout << "\n";*/
         texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-//        ofCircle(X+viewCoords[0], Y+viewCoords[1], 10);
         if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
         }
         prevX = X;
@@ -195,7 +179,6 @@ void testApp::draw(){
             colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/6;
         }
     }
-//    texMap.loadScreenData(0, 0, 3500,3500);
 }
 
 
