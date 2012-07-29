@@ -17,6 +17,7 @@ class testApp : public ofBaseApp{
 		void mousePressed(int x, int y, int button);
 		void mouseReleased(int x, int y, int button);
 		void windowResized(int w, int h);
+        ofPoint windowDimensions;
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
@@ -25,8 +26,6 @@ class testApp : public ofBaseApp{
 //        ofImage rainbow;
         float           alpha;
 		float 			counter;
-/*		ofTrueTypeFont 	vagRounded;
-		char eventString[255];
-		char timeString[255];*/
+		char eventTimeString[255];
 };
 

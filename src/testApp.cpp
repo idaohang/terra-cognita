@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <iostream>
+#include <time.h>
 
 vector<int*> points;
 int *a0 = new int[2];
@@ -19,6 +20,7 @@ int pointHeight = pointWidth;
 unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
 ofTexture texPoint;
 ofFbo fbo;
+ofTrueTypeFont 	timeFont;
 
 
 void rescalePoint() {
@@ -41,11 +43,12 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     /* These coordinates are for Barcelona
     a[0] = (atoi(argv[0]) - 271380000)/250;
     a[1] = (atoi(argv[1]) - 200380000)/250; */
+    a[2] = atoi(argv[2]);
     if(strcmp(argv[0], "0") != 0 && a[0] < 3500 && a[1] > 0 && a[1] < 3500){
         points.push_back(a);
 /*        cout << argv[0];
         cout << ", ";
-        cout << argv[1];
+        cout << argv[2];
         cout << "\n";*/
     }
     return 0;
@@ -61,12 +64,17 @@ void testApp::setup(){
     cout << "\n";
     char *error_msg = NULL;
     cout << "SQLite query about to be executed\n";
-    rc = sqlite3_exec(pathsdb, "select unitx, unity from track_path", callback, NULL, &error_msg);
+    rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", callback, NULL, &error_msg);
     cout << rc;
     cout << "\n";
     sqlite3_close(pathsdb);
     alpha = 0;
 	counter = 0;
+	cout << "About to load the font";
+    cout << "\n";
+	timeFont.loadFont("DejaVuSans-ExtraLight.ttf", 10);
+	cout << "Just loaded the font";
+    cout << "\n";
 
     ofBackground(0,0,0);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
@@ -93,6 +101,8 @@ void testApp::setup(){
     dragging = false;
 	ofEnableAlphaBlending();
 	colorChangeStep = 1;
+	windowDimensions.x = ofGetScreenWidth();
+	windowDimensions.y = ofGetScreenHeight();
 }
 
 
@@ -179,6 +189,10 @@ void testApp::draw(){
             colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/6;
         }
     }
+    time_t milliseconds = points[pathLength][2];
+    tm time = *localtime(&milliseconds);
+    strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
+    timeFont.drawString(eventTimeString, windowDimensions.x - 90, windowDimensions.y - 10);
 }
 
 
