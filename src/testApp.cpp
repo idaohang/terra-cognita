@@ -17,7 +17,10 @@ int initialPointDiameter = 20;
 int pointWidth = initialPointDiameter*zoom;
 int pointHeight = pointWidth;
 unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
+//unsigned char 	* colorAlphaPixels2 = new unsigned char [4];
 ofTexture texPoint;
+//ofTexture texMap;
+ofFbo fbo;
 
 
 void rescalePoint() {
@@ -27,16 +30,20 @@ void rescalePoint() {
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
             float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 5*(1 - relativeDistanceToCenter);
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 10*(1 - relativeDistanceToCenter);
         }
     }
 }
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int *a = new int[2];
-    a[0] = (atoi(argv[0]) - 271380000)/200;
-    a[1] = (atoi(argv[1]) - 200380000)/200;
-    if(strcmp(argv[0], "0") != 0){
+    /* These coordinates are for Berlin */
+    a[0] = (atoi(argv[0]) - 288240000)/275;
+    a[1] = (atoi(argv[1]) - 175920000)/275;
+    /* These coordinates are for Barcelona
+    a[0] = (atoi(argv[0]) - 271380000)/250;
+    a[1] = (atoi(argv[1]) - 200380000)/250; */
+    if(strcmp(argv[0], "0") != 0 && a[0] < 3500 && a[1] > 0 && a[1] < 3500){
         points.push_back(a);
 /*        cout << argv[0];
         cout << ", ";
@@ -65,18 +72,19 @@ void testApp::setup(){
 	counter = 0;
 
     ofBackground(0,0,0);
-    ofSetColor(255, 255, 255, 5);
 //    ofSetLineWidth(400);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
 /*    rainbow.loadImage("point.png");
-    rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);*/
+    rainbow.allocate(20, 20, OF_IMAGE_COLOR_ALPHA);
     cout << "pointWidth: ";
     cout << pointWidth;
     cout << "\n";
     cout << "pointHeight: ";
     cout << pointHeight;
-    cout << "\n";
+    cout << "\n";*/
     texPoint.allocate(400, 400, GL_RGBA);
+//    texMap.allocate(3500, 3500, GL_RGBA);
+    fbo.allocate(3500, 3500, GL_RGBA);
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
             colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
@@ -86,10 +94,11 @@ void testApp::setup(){
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
             float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 5*(1 - relativeDistanceToCenter);
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 1.5*(1 - relativeDistanceToCenter);
         }
     }
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
+
     viewCoords[0] = 0;
     viewCoords[1] = 0;
     initViewCoords[0] = 0;
@@ -102,33 +111,46 @@ void testApp::setup(){
 
 //--------------------------------------------------------------
 void testApp::update(){
+//    texMap.loadScreenData(viewCoords[0],viewCoords[1], 3500, 3500);
+    texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Reset the color of the path's texture
 	colorChangeStep = max(10,int(pathLength/256));
 /*    cout << "colorChangeStep: ";
 	cout << colorChangeStep;
 	cout << "\n";*/
-    for(int i = 0; i < pointHeight; i++) {
-        for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
-        }
-    }
-    texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Increase the path's length
-    if(pathLength < points.size() - 10) {
-        pathLength += 10;
+    if(pathLength < points.size() - 40) {
+        pathLength += 40;
     }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    ofSetHexColor(0xffffff);
     int prevX = points[0][0]*zoom, prevY = points[0][1]*zoom;
     int R = colorAlphaPixels[0];
     int G = colorAlphaPixels[1];
     int B = colorAlphaPixels[2];
-    for(unsigned int i=1; i<pathLength; i++) {
+    prevX = points[pathLength - 1][0]*zoom;
+    prevY = points[pathLength - 1][1]*zoom;
+//    texMap.draw(0, 0);
+    fbo.begin();
+    ofSetColor(255, 255, 255);
+    for(unsigned int i=pathLength - 80; i<pathLength; i++) {
+        int X = points[i][0]*zoom, Y = points[i][1]*zoom;
+        texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
+        //ofCircle(X+viewCoords[0], Y+viewCoords[1], 1);
+    }
+    fbo.end();
+    ofDisableAlphaBlending();
+    fbo.draw(0, 0);
+    ofEnableAlphaBlending();
+    ofSetHexColor(0xffffff);
+    for(int i = 0; i < pointHeight; i++) {
+        for(int j = 0; j < pointWidth; j++) {
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]*6;
+        }
+    }
+    for(unsigned int i=pathLength - 40; i<pathLength; i++) {
         if((i > pathLength - 1500 || i > pathLength/2 && pathLength <= 1500) && i%colorChangeStep == 0 && i != 0) {
 /*            cout << "i:";
             cout << i;
@@ -158,12 +180,22 @@ void testApp::draw(){
         cout << "Y: ";
         cout << Y;
         cout << "\n";*/
-        //if(abs(X - prevX) < 10*zoom && abs(Y - prevY) < 10*zoom) {
-            texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-        //}
+        texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
+//        ofCircle(X+viewCoords[0], Y+viewCoords[1], 10);
+        if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
+        }
         prevX = X;
         prevY = Y;
     }
+    for(int i = 0; i < pointHeight; i++) {
+        for(int j = 0; j < pointWidth; j++) {
+            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/6;
+        }
+    }
+//    texMap.loadScreenData(0, 0, 3500,3500);
 }
 
 
