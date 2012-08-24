@@ -42,8 +42,8 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName){
     int speed = abs((int)(sqrt((float)(x*x + y*y)/(float)(t - prev_t))));
     int *a = new int[2];
     /* These coordinates are for Berlin */
-    a[0] = (x - 288240000)/275;
-    a[1] = (y - 175920000)/275;
+    a[0] = (x - 288170000)/380;
+    a[1] = (y - 175950000)/380;
     /* These coordinates are for Barcelona
     a[0] = (atoi(argv[0]) - 271380000)/250;
     a[1] = (atoi(argv[1]) - 200380000)/250; */
@@ -59,10 +59,10 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName){
         }
         a[3] = currentSpeed;
     }
-    prev_x = x, prev_y = y, prev_t = t;
-    if(maxSpeed < speed) {
-        maxSpeed = speed;
+    if(maxSpeed < currentSpeed) {
+        maxSpeed = currentSpeed;
     }
+    prev_x = x, prev_y = y, prev_t = t;
     return 0;
 }
 
@@ -86,7 +86,7 @@ void testApp::setup(){
 	counter = 0;
 	cout << "About to load the font";
     cout << "\n";
-	timeFont.loadFont("DejaVuSans-ExtraLight.ttf", 10);
+	timeFont.loadFont("DejaVuSans-ExtraLight.ttf", 30);
 	cout << "Just loaded the font";
     cout << "\n";
 
@@ -103,7 +103,7 @@ void testApp::setup(){
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
             float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 2.5*(1 - relativeDistanceToCenter);
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 4.5*(1 - relativeDistanceToCenter);
         }
     }
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
@@ -160,28 +160,15 @@ void testApp::draw(){
         cout << maxSpeed;
         cout << "\n";*/
         int R = 0, G = 0, B = 0;
-        if(speed < maxSpeedQuarter) {
+        if(speed < maxSpeedHalf) {
             R = 0;
-            G = 255;
-            B = 255*((float)speed/maxSpeedQuarter);
+            G = 255*(1 - (float)speed/maxSpeedHalf);
+            B = 255*((float)speed/maxSpeedHalf);
         }
         else {
-            if(speed > maxSpeedHalf) {
-                G = 0;
-                if(speed > maxSpeed - maxSpeedQuarter) {
-                    R = 255;
-                    B = 255*(1 - (float)(speed - 3*maxSpeedQuarter)/maxSpeedQuarter);
-                }
-                else {
-                    R = 255*((float)(speed - maxSpeedHalf)/maxSpeedQuarter);
-                    B = 255;
-                }
-            }
-            else {
-                R = 0;
-                G = 255*(1 - (float)(speed - maxSpeedQuarter)/maxSpeedQuarter);
-                B = 255;
-            }
+            R = 255*(1 - (float)speed/maxSpeedHalf);
+            G = 0;
+            B = 255*((float)(speed - maxSpeedHalf)/maxSpeedHalf);
         }
 /*        int G = (int)(255*pow(cos((float)(speed)/(float)(maxSpeed)),3));
         int B = 255 - G;//(int)(255*pow((float)((float)(speed)/(float)(maxSpeed)), 0.7));
@@ -212,7 +199,7 @@ void testApp::draw(){
     ofEnableAlphaBlending();
     ofSetHexColor(0xffffff);
     sprintf(speedString, "Speed: %d", speed);
-    timeFont.drawString(speedString, windowDimensions.x - 250, windowDimensions.y - 10);
+//    timeFont.drawString(speedString, windowDimensions.x - 250, windowDimensions.y - 10);
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
             colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
@@ -234,7 +221,7 @@ void testApp::draw(){
     time_t milliseconds = points[pathLength][2];
     tm time = *localtime(&milliseconds);
     strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
-    timeFont.drawString(eventTimeString, windowDimensions.x - 90, windowDimensions.y - 10);
+    timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
 }
 
 
