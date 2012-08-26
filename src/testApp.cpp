@@ -21,26 +21,6 @@
 #include <iostream>
 #include <time.h>
 
-vector<int*> points;
-int *a0 = new int[2];
-int *viewCoords = new int[2]; // Will indicate the coordinates of the current viewport, relative to the initial point
-bool dragging;
-int *initCursorPos = new int[2];
-int *initViewCoords = new int[2];
-int colorChangeStep;
-float zoom = 1;
-unsigned int pathLength = 0;
-int initialPointDiameter = 20;
-int pointWidth = initialPointDiameter*zoom;
-int pointHeight = pointWidth;
-unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
-ofTexture texPoint;
-ofFbo fbo;
-ofTrueTypeFont 	timeFont;
-int prev_x = 0, prev_y = 0, prev_t = 0;
-int currentSpeed = 0, maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
-ofPoint windowDimensions;
-
 /* START Code copied from Mappero */
 
 #define deg2rad(deg) ((deg) * (PI / 180.0))
@@ -84,6 +64,40 @@ typedef gdouble MapGeo;
 typedef gfloat MapGeo;
 #endif
 
+/* END Code copied from Mappero */
+
+struct point {
+    int unitx;
+    int unity;
+    float lat;
+    float lon;
+    int time;
+    float speed;
+};
+
+vector<point> points;
+int *a0 = new int[2];
+int *viewCoords = new int[2]; // Will indicate the coordinates of the current viewport, relative to the initial point
+bool dragging;
+int *initCursorPos = new int[2];
+int *initViewCoords = new int[2];
+int colorChangeStep;
+float zoom = 1;
+unsigned int pathLength = 0;
+int initialPointDiameter = 20;
+int pointWidth = initialPointDiameter*zoom;
+int pointHeight = pointWidth;
+unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
+ofTexture texPoint;
+ofFbo fbo;
+ofTrueTypeFont 	speedFont, timeFont;
+MapGeo prev_lon = 0, prev_lat = 0;
+int prev_t = 0;
+int currentSpeed = 0, maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
+ofPoint windowDimensions;
+
+/* START Code copied from Mappero */
+
 void unit2latlon_google(gint unitx, gint unity, MapGeo *lat, MapGeo *lon)
 {
     MapGeo tmp;
@@ -104,6 +118,17 @@ void latlon2unit_google(MapGeo lat, MapGeo lon, gint *unitx, gint *unity)
 
 /* END Code copied from Mappero */
 
+/* Given two points with their latitude and longitude, return the distance between them in Km */
+double latlon2distance(MapGeo lat1, MapGeo lon1, MapGeo lat2, MapGeo lon2) {
+    double theta, dist;
+    theta = lon1 - lon2;
+    dist = abs(acos(sin(deg2rad(lat1)) * sin(deg2rad(lat2)) + cos(deg2rad(lat1)) * cos(deg2rad(lat2)) * cos(deg2rad(theta))))*111.18957696; // 60×1.1515×1.609344
+/*    cout << "dist: ";
+    cout << dist;
+    cout << "\n";*/
+    return dist;
+}
+
 void rescalePoint() {
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
@@ -116,19 +141,36 @@ void rescalePoint() {
     }
 }
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName){
+static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName){
     int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
-    int speed = abs((int)(sqrt((float)(x*x + y*y)/(float)(t - prev_t))));
-    int *a = new int[2];
+    //int speed = abs((int)(sqrt((float)(x*x + y*y)/(float)(t - prev_t))));
+    point newPoint;
     /* These coordinates are for Berlin */
-    a[0] = (x - 288170000)/380;
-    a[1] = (y - 175950000)/380;
+    newPoint.unitx = (x - 288170000)/380;
+    newPoint.unity = (y - 175950000)/380;
     /* These coordinates are for Barcelona
-    a[0] = (atoi(argv[0]) - 271380000)/250;
-    a[1] = (atoi(argv[1]) - 200380000)/250; */
-    a[2] = t;
-    if(strcmp(argv[0], "0") != 0 && a[0] < windowDimensions.x && a[1] > 0 && a[1] < windowDimensions.y){
-        points.push_back(a);
+    newPoint.unitx = (atoi(argv[0]) - 271380000)/250;
+    newPoint.unity = (atoi(argv[1]) - 200380000)/250; */
+    MapGeo lat;
+    MapGeo lon;
+    unit2latlon_google(x, y, &lat, &lon);
+/*    cout << "t: ";
+    cout << t;
+    cout << "\nprev_t: ";
+    cout << prev_t;
+    cout << '\n';*/
+    double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
+    int speed = (int)((double)(distance*3600000)/(double)(max(1, t - prev_t)));
+/*    cout << "t - prev_t: ";
+    cout << t - prev_t;
+    cout << "\n";*/
+/*    cout << "speed: ";
+    cout << speed;
+    cout << " km/h\n";*/
+    if(strcmp(argv[0], "0") != 0 && newPoint.unitx < windowDimensions.x && newPoint.unity > 0 && newPoint.unity < windowDimensions.y){
+        newPoint.time = t;
+        newPoint.speed = currentSpeed;
+        points.push_back(newPoint);
 /*        cout << argv[0];
         cout << ", ";
         cout << argv[2];
@@ -136,12 +178,11 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName){
         if(speed >= 0) {
             currentSpeed = speed;
         }
-        a[3] = currentSpeed;
     }
     if(maxSpeed < currentSpeed) {
         maxSpeed = currentSpeed;
     }
-    prev_x = x, prev_y = y, prev_t = t;
+    prev_lon = lon, prev_lat = lat, prev_t = t;
     return 0;
 }
 
@@ -157,14 +198,19 @@ void testApp::setup(){
     cout << "\n";
     char *error_msg = NULL;
     cout << "SQLite query about to be executed\n";
-    rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", callback, NULL, &error_msg);
+    rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", sqliteCallback, NULL, &error_msg);
     cout << rc;
     cout << "\n";
     sqlite3_close(pathsdb);
+    cout << "maxSpeed: ";
+    cout << maxSpeed;
+    maxSpeed = min(maxSpeed, 650); // We assume that we never go faster than 650 km/h, anything higher than that is erroneous data
+    cout << "\n";
     alpha = 0;
 	counter = 0;
 	cout << "About to load the font";
     cout << "\n";
+	speedFont.loadFont("DejaVuSans-ExtraLight.ttf", 20);
 	timeFont.loadFont("DejaVuSans-ExtraLight.ttf", 30);
 	cout << "Just loaded the font";
     cout << "\n";
@@ -222,16 +268,13 @@ void testApp::update(){
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    int prevX = points[pathLength - 1][0]*zoom;
-    int prevY = points[pathLength - 1][1]*zoom;
+    int prevX = points[pathLength - 1].unitx*zoom;
+    int prevY = points[pathLength - 1].unity*zoom;
     int speed;
     fbo.begin();
     ofSetColor(255, 255, 255);
     for(unsigned int i=max(0, int(pathLength - 40)); i<pathLength; i++) {
-        speed = abs(points[i][3]);
-        cout << "speed: ";
-        cout << speed;
-        cout << "\n";
+        speed = abs(points[i].speed);
         /*cout << "speed: ";
         cout << speed;
         cout << "\n";
@@ -252,12 +295,12 @@ void testApp::draw(){
 /*        int G = (int)(255*pow(cos((float)(speed)/(float)(maxSpeed)),3));
         int B = 255 - G;//(int)(255*pow((float)((float)(speed)/(float)(maxSpeed)), 0.7));
         int R = (int)((int)(255+B)/2);//(int)(255*pow(sin((float)((float)(speed*2)/(float)(maxSpeed))), 0.7));*/
-        cout << R;
+/*        cout << R;
         cout << ", ";
         cout << G;
         cout << ", ";
         cout << B;
-        cout << "\n";
+        cout << "\n";*/
         for(int i = 0; i < pointHeight; i++) {
             for(int j = 0; j < pointWidth; j++) {
                 colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3];
@@ -267,7 +310,7 @@ void testApp::draw(){
             }
         }
         texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
-        int X = points[i][0]*zoom, Y = points[i][1]*zoom;
+        int X = points[i].unitx*zoom, Y = points[i].unity*zoom;
         texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
         prevX = X;
         prevY = Y;
@@ -277,8 +320,8 @@ void testApp::draw(){
     fbo.draw(0, 0);
     ofEnableAlphaBlending();
     ofSetHexColor(0xffffff);
-    sprintf(speedString, "Speed: %d", speed);
-//    timeFont.drawString(speedString, windowDimensions.x - 250, windowDimensions.y - 10);
+    sprintf(speedString, "%d km/h", speed);
+    speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
     for(int i = 0; i < pointHeight; i++) {
         for(int j = 0; j < pointWidth; j++) {
             colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
@@ -288,7 +331,7 @@ void testApp::draw(){
         }
     }
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
-    int X = points[pathLength - 1][0]*zoom, Y = points[pathLength - 1][1]*zoom;
+    int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
     if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
         texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
     }
@@ -297,7 +340,7 @@ void testApp::draw(){
             colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/20;
         }
     }
-    time_t milliseconds = points[pathLength][2];
+    time_t milliseconds = points[pathLength].time;
     tm time = *localtime(&milliseconds);
     strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
     timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
