@@ -73,6 +73,7 @@ struct point {
     float lon;
     int time;
     float speed;
+    ofColor color;
 };
 
 vector<point> points;
@@ -93,7 +94,8 @@ ofFbo fbo;
 ofTrueTypeFont 	speedFont, timeFont;
 MapGeo prev_lon = 0, prev_lat = 0;
 int prev_t = 0;
-int currentSpeed = 0, maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
+int currentSpeed = 0;
+float maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
 ofPoint windowDimensions;
 
 /* START Code copied from Mappero */
@@ -202,10 +204,6 @@ void testApp::setup(){
     cout << rc;
     cout << "\n";
     sqlite3_close(pathsdb);
-    cout << "maxSpeed: ";
-    cout << maxSpeed;
-    maxSpeed = min(maxSpeed, 650); // We assume that we never go faster than 650 km/h, anything higher than that is erroneous data
-    cout << "\n";
     alpha = 0;
 	counter = 0;
 	cout << "About to load the font";
@@ -240,8 +238,34 @@ void testApp::setup(){
     dragging = false;
 	ofEnableAlphaBlending();
 	colorChangeStep = 1;
+    cout << "Calculated maxSpeed: " << maxSpeed;
+    maxSpeed = min(maxSpeed, (float)800); // We assume that we never go faster than 800 km/h, anything higher than that is erroneous data
+    cout << "maxSpeed: ";
+    cout << maxSpeed;
+    cout << "\n";
 	maxSpeedHalf = maxSpeed/2;
 	maxSpeedQuarter = maxSpeedHalf/2;
+	cout << "points.size(): ";
+	cout << points.size();
+	cout << "\n";
+	for(int i = 0; i < points.size(); i++) {
+        unsigned int R = 0, G = 0, B = 0;
+        int speed = min(points[i].speed, maxSpeed);
+        if(speed < maxSpeedHalf) {
+            R = 0;
+            G = 255*(1 - (float)speed/maxSpeedHalf);
+            B = 255*((float)speed/maxSpeedHalf);
+        }
+        else {
+            R = 255*((float)(speed - maxSpeedHalf)/maxSpeedHalf);
+            G = 0;
+            B = 255*(1 - (float)(speed - maxSpeedHalf)/maxSpeedHalf);
+        }
+//        cout << "R: " << R << ", G: " << G << ", B: " << B << "\n";
+        points[i].color.r = R;
+        points[i].color.g = G;
+        points[i].color.b = B;
+	}
 }
 
 
@@ -281,34 +305,22 @@ void testApp::draw(){
         cout << "maxSpeed: ";
         cout << maxSpeed;
         cout << "\n";*/
-        int R = 0, G = 0, B = 0;
-        if(speed < maxSpeedHalf) {
-            R = 0;
-            G = 255*(1 - (float)speed/maxSpeedHalf);
-            B = 255*((float)speed/maxSpeedHalf);
-        }
-        else {
-            R = 255*(1 - (float)speed/maxSpeedHalf);
-            G = 0;
-            B = 255*((float)(speed - maxSpeedHalf)/maxSpeedHalf);
-        }
 /*        int G = (int)(255*pow(cos((float)(speed)/(float)(maxSpeed)),3));
         int B = 255 - G;//(int)(255*pow((float)((float)(speed)/(float)(maxSpeed)), 0.7));
         int R = (int)((int)(255+B)/2);//(int)(255*pow(sin((float)((float)(speed*2)/(float)(maxSpeed))), 0.7));*/
-/*        cout << R;
-        cout << ", ";
-        cout << G;
-        cout << ", ";
-        cout << B;
-        cout << "\n";*/
-        for(int i = 0; i < pointHeight; i++) {
-            for(int j = 0; j < pointWidth; j++) {
-                colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3];
-                colorAlphaPixels[(j*pointWidth+i)*4 + 0] = R;
-                colorAlphaPixels[(j*pointWidth+i)*4 + 1] = G;
-                colorAlphaPixels[(j*pointWidth+i)*4 + 2] = B;
+        for(int j = 0; j < pointHeight; j++) {
+            for(int k = 0; k < pointWidth; k++) {
+                colorAlphaPixels[(k*pointWidth+j)*4 + 0] = points[i].color.r;
+                colorAlphaPixels[(k*pointWidth+j)*4 + 1] = points[i].color.g;
+                colorAlphaPixels[(k*pointWidth+j)*4 + 2] = points[i].color.b;
             }
         }
+  /*      cout << (int)(points[i].color.r);
+        cout << ", ";
+        cout << (int)(points[i].color.g);
+        cout << ", ";
+        cout << (int)(points[i].color.b);
+        cout << "\n";*/
         texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         int X = points[i].unitx*zoom, Y = points[i].unity*zoom;
         texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
