@@ -85,7 +85,7 @@ int *initViewCoords = new int[2];
 int colorChangeStep;
 float zoom = 1;
 unsigned int pathLength = 0;
-int initialPointDiameter = 20;
+int initialPointDiameter = 10;
 int pointWidth = initialPointDiameter*zoom;
 int pointHeight = pointWidth;
 unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
@@ -188,6 +188,38 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
     return 0;
 }
 
+void drawPoints(unsigned int from, unsigned int to) {
+    while(from < to) {
+        unsigned int speed = abs(points[from].speed);
+        /*cout << "speed: ";
+        cout << speed;
+        cout << "\n";
+        cout << "maxSpeed: ";
+        cout << maxSpeed;
+        cout << "\n";*/
+/*        int G = (int)(255*pow(cos((float)(speed)/(float)(maxSpeed)),3));
+        int B = 255 - G;//(int)(255*pow((float)((float)(speed)/(float)(maxSpeed)), 0.7));
+        int R = (int)((int)(255+B)/2);//(int)(255*pow(sin((float)((float)(speed*2)/(float)(maxSpeed))), 0.7));*/
+        for(int j = 0; j < pointHeight; j++) {
+            for(int k = 0; k < pointWidth; k++) {
+                colorAlphaPixels[(k*pointWidth+j)*4 + 0] = points[from].color.r;
+                colorAlphaPixels[(k*pointWidth+j)*4 + 1] = points[from].color.g;
+                colorAlphaPixels[(k*pointWidth+j)*4 + 2] = points[from].color.b;
+            }
+        }
+  /*      cout << (int)(points[i].color.r);
+        cout << ", ";
+        cout << (int)(points[i].color.g);
+        cout << ", ";
+        cout << (int)(points[i].color.b);
+        cout << "\n";*/
+        texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
+        int X = points[from].unitx*zoom, Y = points[from].unity*zoom;
+        texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
+        from++;
+    }
+}
+
 //--------------------------------------------------------------
 void testApp::setup(){
 	windowDimensions.x = ofGetScreenWidth();
@@ -285,77 +317,50 @@ void testApp::update(){
 	cout << colorChangeStep;
 	cout << "\n";*/
     // Increase the path's length
-    if(pathLength < points.size() - 40) {
+    if(!(dragging) && pathLength < points.size() - 40) {
         pathLength += 40;
     }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    int prevX = points[pathLength - 1].unitx*zoom;
-    int prevY = points[pathLength - 1].unity*zoom;
-    int speed;
-    fbo.begin();
-    ofSetColor(255, 255, 255);
-    for(unsigned int i=max(0, int(pathLength - 40)); i<pathLength; i++) {
-        speed = abs(points[i].speed);
-        /*cout << "speed: ";
-        cout << speed;
-        cout << "\n";
-        cout << "maxSpeed: ";
-        cout << maxSpeed;
-        cout << "\n";*/
-/*        int G = (int)(255*pow(cos((float)(speed)/(float)(maxSpeed)),3));
-        int B = 255 - G;//(int)(255*pow((float)((float)(speed)/(float)(maxSpeed)), 0.7));
-        int R = (int)((int)(255+B)/2);//(int)(255*pow(sin((float)((float)(speed*2)/(float)(maxSpeed))), 0.7));*/
-        for(int j = 0; j < pointHeight; j++) {
-            for(int k = 0; k < pointWidth; k++) {
-                colorAlphaPixels[(k*pointWidth+j)*4 + 0] = points[i].color.r;
-                colorAlphaPixels[(k*pointWidth+j)*4 + 1] = points[i].color.g;
-                colorAlphaPixels[(k*pointWidth+j)*4 + 2] = points[i].color.b;
+    if(!dragging){
+        int prevX = points[pathLength - 1].unitx*zoom;
+        int prevY = points[pathLength - 1].unity*zoom;
+        int speed;
+        fbo.begin();
+        ofSetColor(255, 255, 255);
+        drawPoints(max(0, int(pathLength - 40)), pathLength);
+        fbo.end();
+        ofDisableAlphaBlending();
+        fbo.draw(0, 0);
+        ofEnableAlphaBlending();
+        ofSetHexColor(0xffffff);
+        //sprintf(speedString, "%i km/h", speed);
+        //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
+        for(int i = 0; i < pointHeight; i++) {
+            for(int j = 0; j < pointWidth; j++) {
+                colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
+                colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
+                colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
+                colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]*20;
             }
         }
-  /*      cout << (int)(points[i].color.r);
-        cout << ", ";
-        cout << (int)(points[i].color.g);
-        cout << ", ";
-        cout << (int)(points[i].color.b);
-        cout << "\n";*/
         texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
-        int X = points[i].unitx*zoom, Y = points[i].unity*zoom;
-        texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-        prevX = X;
-        prevY = Y;
-    }
-    fbo.end();
-    ofDisableAlphaBlending();
-    fbo.draw(0, 0);
-    ofEnableAlphaBlending();
-    ofSetHexColor(0xffffff);
-    sprintf(speedString, "%d km/h", speed);
-    speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
-    for(int i = 0; i < pointHeight; i++) {
-        for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]*20;
+        int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
+        if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
+            texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
         }
-    }
-    texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
-    int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
-    if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
-        texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-    }
-    for(int i = 0; i < pointHeight; i++) {
-        for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/20;
+        for(int i = 0; i < pointHeight; i++) {
+            for(int j = 0; j < pointWidth; j++) {
+                colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/20;
+            }
         }
+        time_t milliseconds = points[pathLength].time;
+        tm time = *localtime(&milliseconds);
+        strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
+        timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
     }
-    time_t milliseconds = points[pathLength].time;
-    tm time = *localtime(&milliseconds);
-    strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
-    timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
 }
 
 
@@ -373,6 +378,13 @@ void testApp::keyReleased(int key){
         rescalePoint();
         viewCoords[0] *= 1.2;
         viewCoords[1] *= 1.2;
+        fbo.begin();
+        ofClear(0, 0, 0, 0);
+        drawPoints(0, pathLength - 41);
+        fbo.end();
+        ofDisableAlphaBlending();
+        fbo.draw(0, 0);
+        ofEnableAlphaBlending();
     }
     else if(key == 45) {
         zoom *= 0.8;
@@ -381,6 +393,13 @@ void testApp::keyReleased(int key){
         rescalePoint();
         viewCoords[0] *= 0.8;
         viewCoords[0] *= 0.8;
+        fbo.begin();
+        ofClear(0, 0, 0, 0);
+        drawPoints(0, pathLength - 41);
+        fbo.end();
+        ofDisableAlphaBlending();
+        fbo.draw(0, 0);
+        ofEnableAlphaBlending();
     }
 /*    cout << "zoom: ";
     cout << zoom;
@@ -406,6 +425,9 @@ void testApp::mouseDragged(int x, int y, int button){
     }
     viewCoords[0] = initViewCoords[0] + x - initCursorPos[0]; // Amount of displacement that we should apply to the viewport
     viewCoords[1] = initViewCoords[1] + y - initCursorPos[1];
+    ofDisableAlphaBlending();
+    fbo.draw(0, 0);
+    ofEnableAlphaBlending();
 /*    cout << viewCoords[0];
     cout << ", ";
     cout << viewCoords[1];
@@ -422,6 +444,13 @@ void testApp::mouseReleased(int x, int y, int button){
     dragging = false;
     initViewCoords[0] = viewCoords[0];
     initViewCoords[1] = viewCoords[1];
+    fbo.begin();
+    ofClear(0, 0, 0, 0);
+    drawPoints(0, pathLength - 41);
+    fbo.end();
+    ofDisableAlphaBlending();
+    fbo.draw(0, 0);
+    ofEnableAlphaBlending();
 }
 
 //--------------------------------------------------------------
