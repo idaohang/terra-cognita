@@ -22,6 +22,8 @@
 #include <time.h>
 #include "mappero.c"
 
+#define pointsPerFrame 40
+
 struct point {
     int unitx;
     int unity;
@@ -213,8 +215,8 @@ void testApp::update(){
     // Reset the color of the path's texture
 	colorChangeStep = max(10,int(pathLength/256));
     // Increase the path's length
-    if(!(dragging) && pathLength < points.size() - 40) {
-        pathLength += 40;
+    if(!(dragging) && pathLength < points.size() - pointsPerFrame) {
+        pathLength += pointsPerFrame;
     }
 }
 
@@ -226,7 +228,7 @@ void testApp::draw(){
         int speed;
         fbo.begin();
         ofSetColor(255, 255, 255);
-        drawPoints(max(0, int(pathLength - 40)), pathLength);
+        drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength);
         fbo.end();
         ofDisableAlphaBlending();
         fbo.draw(0, 0);
