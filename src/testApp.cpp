@@ -20,51 +20,7 @@
 #include <string.h>
 #include <iostream>
 #include <time.h>
-
-/* START Code copied from Mappero */
-
-#define deg2rad(deg) ((deg) * (PI / 180.0))
-#define rad2deg(rad) ((rad) * (180.0 / PI))
-
-#ifdef USE_DOUBLES_FOR_LATLON
-#define GSIN(x) sin(x)
-#define GCOS(x) cos(x)
-#define GASIN(x) asin(x)
-#define GTAN(x) tan(x)
-#define GATAN(x) atan(x)
-#define GATAN2(x, y) atan2(x, y)
-#define GEXP(x) exp(x)
-#define GLOG(x) log(x)
-#define GPOW(x, y) pow(x, y)
-#define GSQTR(x) sqrt(x)
-#else
-#define GSIN(x) sinf(x)
-#define GCOS(x) cosf(x)
-#define GASIN(x) asinf(x)
-#define GTAN(x) tanf(x)
-#define GATAN(x) atanf(x)
-#define GATAN2(x, y) atan2f(x, y)
-#define GEXP(x) expf(x)
-#define GLOG(x) logf(x)
-#define GPOW(x, y) powf(x, y)
-#define GSQTR(x) sqrtf(x)
-#endif
-
-#define MAX_ZOOM (20)
-#define TILE_SIZE_P2 (8)
-
-#define WORLD_SIZE_UNITS (2 << (MAX_ZOOM + TILE_SIZE_P2))
-
-#define MERCATOR_SPAN (-6.28318377773622)
-#define MERCATOR_TOP (3.14159188886811)
-
-#ifdef USE_DOUBLES_FOR_LATLON
-typedef gdouble MapGeo;
-#else
-typedef gfloat MapGeo;
-#endif
-
-/* END Code copied from Mappero */
+#include "mappero.c"
 
 struct point {
     int unitx;
@@ -97,28 +53,6 @@ int prev_t = 0;
 int currentSpeed = 0;
 float maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
 ofPoint windowDimensions;
-
-/* START Code copied from Mappero */
-
-void unit2latlon_google(gint unitx, gint unity, MapGeo *lat, MapGeo *lon)
-{
-    MapGeo tmp;
-    *lon = (unitx * (360.0 / WORLD_SIZE_UNITS)) - 180.0;
-    tmp = (unity * (MERCATOR_SPAN / WORLD_SIZE_UNITS)) + MERCATOR_TOP;
-    *lat = (360.0 * (GATAN(GEXP(tmp)))) * (1.0 / PI) - 90.0;
-}
-
-void latlon2unit_google(MapGeo lat, MapGeo lon, gint *unitx, gint *unity)
-{
-    MapGeo tmp;
-
-    *unitx = (lon + 180.0) * (WORLD_SIZE_UNITS / 360.0) + 0.5;
-    tmp = GSIN(deg2rad(lat));
-    *unity = 0.5 + (WORLD_SIZE_UNITS / MERCATOR_SPAN) *
-        (GLOG((1.0 + tmp) / (1.0 - tmp)) * 0.5 - MERCATOR_TOP);
-}
-
-/* END Code copied from Mappero */
 
 /* Given two points with their latitude and longitude, return the distance between them in Km */
 double latlon2distance(MapGeo lat1, MapGeo lon1, MapGeo lat2, MapGeo lon2) {
