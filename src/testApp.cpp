@@ -59,9 +59,6 @@ double latlon2distance(MapGeo lat1, MapGeo lon1, MapGeo lat2, MapGeo lon2) {
     double theta, dist;
     theta = lon1 - lon2;
     dist = abs(acos(sin(deg2rad(lat1)) * sin(deg2rad(lat2)) + cos(deg2rad(lat1)) * cos(deg2rad(lat2)) * cos(deg2rad(theta))))*111.18957696; // 60×1.1515×1.609344
-/*    cout << "dist: ";
-    cout << dist;
-    cout << "\n";*/
     return dist;
 }
 
@@ -79,7 +76,6 @@ void rescalePoint() {
 
 static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName){
     int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
-    //int speed = abs((int)(sqrt((float)(x*x + y*y)/(float)(t - prev_t))));
     point newPoint;
     /* These coordinates are for Berlin */
     newPoint.unitx = (x - 288170000)/380;
@@ -90,27 +86,12 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
     MapGeo lat;
     MapGeo lon;
     unit2latlon_google(x, y, &lat, &lon);
-/*    cout << "t: ";
-    cout << t;
-    cout << "\nprev_t: ";
-    cout << prev_t;
-    cout << '\n';*/
     double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
     int speed = (int)((double)(distance*3600000)/(double)(max(1, t - prev_t)));
-/*    cout << "t - prev_t: ";
-    cout << t - prev_t;
-    cout << "\n";*/
-/*    cout << "speed: ";
-    cout << speed;
-    cout << " km/h\n";*/
     if(strcmp(argv[0], "0") != 0 && newPoint.unitx < windowDimensions.x && newPoint.unity > 0 && newPoint.unity < windowDimensions.y){
         newPoint.time = t;
         newPoint.speed = currentSpeed;
         points.push_back(newPoint);
-/*        cout << argv[0];
-        cout << ", ";
-        cout << argv[2];
-        cout << "\n";*/
         if(speed >= 0) {
             currentSpeed = speed;
         }
@@ -125,15 +106,6 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
 void drawPoints(unsigned int from, unsigned int to) {
     while(from < to) {
         unsigned int speed = abs(points[from].speed);
-        /*cout << "speed: ";
-        cout << speed;
-        cout << "\n";
-        cout << "maxSpeed: ";
-        cout << maxSpeed;
-        cout << "\n";*/
-/*        int G = (int)(255*pow(cos((float)(speed)/(float)(maxSpeed)),3));
-        int B = 255 - G;//(int)(255*pow((float)((float)(speed)/(float)(maxSpeed)), 0.7));
-        int R = (int)((int)(255+B)/2);//(int)(255*pow(sin((float)((float)(speed*2)/(float)(maxSpeed))), 0.7));*/
         for(int j = 0; j < pointHeight; j++) {
             for(int k = 0; k < pointWidth; k++) {
                 colorAlphaPixels[(k*pointWidth+j)*4 + 0] = points[from].color.r;
@@ -141,12 +113,6 @@ void drawPoints(unsigned int from, unsigned int to) {
                 colorAlphaPixels[(k*pointWidth+j)*4 + 2] = points[from].color.b;
             }
         }
-  /*      cout << (int)(points[i].color.r);
-        cout << ", ";
-        cout << (int)(points[i].color.g);
-        cout << ", ";
-        cout << (int)(points[i].color.b);
-        cout << "\n";*/
         texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         int X = points[from].unitx*zoom, Y = points[from].unity*zoom;
         texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
@@ -227,7 +193,6 @@ void testApp::setup(){
             G = 0;
             B = 255*(1 - (float)(speed - maxSpeedHalf)/maxSpeedHalf);
         }
-//        cout << "R: " << R << ", G: " << G << ", B: " << B << "\n";
         points[i].color.r = R;
         points[i].color.g = G;
         points[i].color.b = B;
@@ -247,9 +212,6 @@ void testApp::update(){
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Reset the color of the path's texture
 	colorChangeStep = max(10,int(pathLength/256));
-/*    cout << "colorChangeStep: ";
-	cout << colorChangeStep;
-	cout << "\n";*/
     // Increase the path's length
     if(!(dragging) && pathLength < points.size() - 40) {
         pathLength += 40;
@@ -335,9 +297,6 @@ void testApp::keyReleased(int key){
         fbo.draw(0, 0);
         ofEnableAlphaBlending();
     }
-/*    cout << "zoom: ";
-    cout << zoom;
-    cout << "\n";*/
 }
 
 //--------------------------------------------------------------
@@ -351,21 +310,12 @@ void testApp::mouseDragged(int x, int y, int button){
         initCursorPos[0] = x;
         initCursorPos[1] = y;
         dragging = true;
-/*        cout << "\n";
-        cout << initCursorPos[0];
-        cout << ", ";
-        cout << initCursorPos[1];
-        cout << "\n\n";*/
     }
     viewCoords[0] = initViewCoords[0] + x - initCursorPos[0]; // Amount of displacement that we should apply to the viewport
     viewCoords[1] = initViewCoords[1] + y - initCursorPos[1];
     ofDisableAlphaBlending();
     fbo.draw(0, 0);
     ofEnableAlphaBlending();
-/*    cout << viewCoords[0];
-    cout << ", ";
-    cout << viewCoords[1];
-    cout << "\n";*/
 }
 
 //--------------------------------------------------------------
