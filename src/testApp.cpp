@@ -22,7 +22,7 @@
 #include <time.h>
 #include "mappero.c"
 
-#define pointsPerFrame 40
+#define pointsPerFrame 30
 
 struct point {
     int unitx;
@@ -46,7 +46,7 @@ unsigned int pathLength = 0;
 int initialPointDiameter = 10;
 int pointWidth = initialPointDiameter*zoom;
 int pointHeight = pointWidth;
-unsigned char 	* colorAlphaPixels = new unsigned char [400*400*4];
+unsigned char * colorAlphaPixels, * colorAlphaPixelsOriginal;
 ofTexture texPoint;
 ofFbo fbo;
 ofTrueTypeFont 	speedFont, timeFont;
@@ -105,16 +105,37 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
     return 0;
 }
 
+unsigned char * initColorAlphaPixels(float brightness) {
+    unsigned char * pixels = new unsigned char [400*400*4];
+    for(int i = 0; i < pointHeight; i++) {
+        for(int j = 0; j < pointWidth; j++) {
+            pixels[(j*pointWidth+i)*4 + 0] = 255;
+            pixels[(j*pointWidth+i)*4 + 1] = 255;
+            pixels[(j*pointWidth+i)*4 + 2] = 255;
+            int distanceX = abs(j - pointWidth/2);
+            int distanceY = abs(i - pointHeight/2);
+            float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
+            float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
+            pixels[(j*pointWidth+i)*4 + 3] = brightness*(1 - relativeDistanceToCenter);
+        }
+    }
+    return pixels;
+}
+
+void changeColorAlphaPixels(unsigned char * pixels, ofColor color) {
+    for(int j = 0; j < pointHeight; j++) {
+        for(int k = 0; k < pointWidth; k++) {
+            pixels[(k*pointWidth+j)*4 + 0] = color.r;
+            pixels[(k*pointWidth+j)*4 + 1] = color.g;
+            pixels[(k*pointWidth+j)*4 + 2] = color.b;
+        }
+    }
+}
+
 void drawPoints(unsigned int from, unsigned int to) {
     while(from < to) {
         unsigned int speed = abs(points[from].speed);
-        for(int j = 0; j < pointHeight; j++) {
-            for(int k = 0; k < pointWidth; k++) {
-                colorAlphaPixels[(k*pointWidth+j)*4 + 0] = points[from].color.r;
-                colorAlphaPixels[(k*pointWidth+j)*4 + 1] = points[from].color.g;
-                colorAlphaPixels[(k*pointWidth+j)*4 + 2] = points[from].color.b;
-            }
-        }
+        changeColorAlphaPixels(colorAlphaPixels, points[from].color);
         texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         int X = points[from].unitx*zoom, Y = points[from].unity*zoom;
         texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
@@ -151,18 +172,6 @@ void testApp::setup(){
     ofEnableBlendMode(OF_BLENDMODE_ADD);
     texPoint.allocate(400, 400, GL_RGBA);
     fbo.allocate(3500, 3500, GL_RGBA);
-    for(int i = 0; i < pointHeight; i++) {
-        for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
-            int distanceX = abs(j - pointWidth/2);
-            int distanceY = abs(i - pointHeight/2);
-            float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
-            float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 4.5*(1 - relativeDistanceToCenter);
-        }
-    }
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
 
     viewCoords[0] = 0;
@@ -199,18 +208,13 @@ void testApp::setup(){
         points[i].color.g = G;
         points[i].color.b = B;
 	}
+	colorAlphaPixelsOriginal = initColorAlphaPixels(127);
+	colorAlphaPixels = initColorAlphaPixels(4.5);
 }
 
 
 //--------------------------------------------------------------
 void testApp::update(){
-    for(int i = 0; i < pointHeight; i++) {
-        for(int j = 0; j < pointWidth; j++) {
-            colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
-            colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
-        }
-    }
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Reset the color of the path's texture
 	colorChangeStep = max(10,int(pathLength/256));
@@ -236,23 +240,10 @@ void testApp::draw(){
         ofSetHexColor(0xffffff);
         //sprintf(speedString, "%i km/h", speed);
         //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
-        for(int i = 0; i < pointHeight; i++) {
-            for(int j = 0; j < pointWidth; j++) {
-                colorAlphaPixels[(j*pointWidth+i)*4 + 0] = 255;
-                colorAlphaPixels[(j*pointWidth+i)*4 + 1] = 255;
-                colorAlphaPixels[(j*pointWidth+i)*4 + 2] = 255;
-                colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]*20;
-            }
-        }
-        texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
+        texPoint.loadData(colorAlphaPixelsOriginal, pointWidth, pointHeight, GL_RGBA);
         int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
         if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
             texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-        }
-        for(int i = 0; i < pointHeight; i++) {
-            for(int j = 0; j < pointWidth; j++) {
-                colorAlphaPixels[(j*pointWidth+i)*4 + 3] = colorAlphaPixels[(j*pointWidth+i)*4 + 3]/20;
-            }
         }
         time_t milliseconds = points[pathLength].time;
         tm time = *localtime(&milliseconds);
