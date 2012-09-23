@@ -22,7 +22,8 @@
 #include <time.h>
 #include "mappero.c"
 
-#define pointsPerFrame 30
+#define pointsPerFrame 10
+#define initialPointDiameter 10
 
 struct point {
     int unitx;
@@ -42,11 +43,10 @@ int *initCursorPos = new int[2];
 int *initViewCoords = new int[2];
 float zoom = 1;
 unsigned int pathLength = 0;
-int initialPointDiameter = 10;
 int pointWidth = initialPointDiameter*zoom;
 int pointHeight = pointWidth;
-unsigned char * colorAlphaPixels, * colorAlphaPixelsOriginal;
-ofTexture texPoint;
+unsigned char * colorAlphaPixels, * colorAlphaPixelsHead;
+ofTexture texPoint, texHead;
 ofFbo fbo;
 ofTrueTypeFont 	speedFont, timeFont;
 MapGeo prev_lon = 0, prev_lat = 0;
@@ -70,7 +70,8 @@ void rescalePoint() {
             int distanceY = abs(i - pointHeight/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
             float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 10*(1 - relativeDistanceToCenter);
+            colorAlphaPixels[(j*pointWidth+i)*4 + 3] = 4.5*(1 - relativeDistanceToCenter);
+            colorAlphaPixelsHead[(j*pointWidth+i)*4 + 3] = 127*(1 - relativeDistanceToCenter);
         }
     }
 }
@@ -78,12 +79,12 @@ void rescalePoint() {
 static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName){
     int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
     point newPoint;
-    /* These coordinates are for Berlin */
+    /* These coordinates center the visualization on Berlin */
     newPoint.unitx = (x - 288170000)/380;
     newPoint.unity = (y - 175950000)/380;
-    /* These coordinates are for Barcelona
-    newPoint.unitx = (atoi(argv[0]) - 271380000)/250;
-    newPoint.unity = (atoi(argv[1]) - 200380000)/250; */
+    /* These coordinates center the visualization on Barcelona
+    newPoint.unitx = (atoi(argv[0]) - 271380000)/380;
+    newPoint.unity = (atoi(argv[1]) - 200380000)/380; */
     MapGeo lat;
     MapGeo lon;
     unit2latlon_google(x, y, &lat, &lon);
@@ -104,18 +105,18 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
     return 0;
 }
 
-unsigned char * initColorAlphaPixels(float brightness) {
-    unsigned char * pixels = new unsigned char [400*400*4];
-    for(int i = 0; i < pointHeight; i++) {
-        for(int j = 0; j < pointWidth; j++) {
-            pixels[(j*pointWidth+i)*4 + 0] = 255;
-            pixels[(j*pointWidth+i)*4 + 1] = 255;
-            pixels[(j*pointWidth+i)*4 + 2] = 255;
-            int distanceX = abs(j - pointWidth/2);
-            int distanceY = abs(i - pointHeight/2);
+unsigned char * initColorAlphaPixels(int diameter, float brightness) {
+    unsigned char * pixels = new unsigned char [diameter*diameter*4];
+    for(int i = 0; i < diameter; i++) {
+        for(int j = 0; j < diameter; j++) {
+            pixels[(j*diameter+i)*4 + 0] = 255;
+            pixels[(j*diameter+i)*4 + 1] = 255;
+            pixels[(j*diameter+i)*4 + 2] = 255;
+            int distanceX = abs(j - diameter/2);
+            int distanceY = abs(i - diameter/2);
             float distanceToCenter = sqrt(distanceX*distanceX + distanceY*distanceY);
-            float relativeDistanceToCenter = min(float(1), distanceToCenter/(pointWidth/2));
-            pixels[(j*pointWidth+i)*4 + 3] = brightness*(1 - relativeDistanceToCenter);
+            float relativeDistanceToCenter = min(float(1), distanceToCenter/(diameter/2));
+            pixels[(j*diameter+i)*4 + 3] = brightness*(1 - relativeDistanceToCenter);
         }
     }
     return pixels;
@@ -169,9 +170,12 @@ void testApp::setup(){
 
     ofBackground(0,0,0);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
-    texPoint.allocate(400, 400, GL_RGBA);
+    texPoint.allocate(initialPointDiameter*initialPointDiameter, initialPointDiameter*initialPointDiameter, GL_RGBA);
+    texHead.allocate(initialPointDiameter*initialPointDiameter*4, initialPointDiameter*initialPointDiameter*4, GL_RGBA);
+	colorAlphaPixelsHead = initColorAlphaPixels(initialPointDiameter*2, 127);
+	colorAlphaPixels = initColorAlphaPixels(initialPointDiameter, 4.5);
+    texHead.loadData(colorAlphaPixelsHead, initialPointDiameter*2, initialPointDiameter*2, GL_RGBA);
     fbo.allocate(3500, 3500, GL_RGBA);
-    texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
 
     viewCoords[0] = 0;
     viewCoords[1] = 0;
@@ -206,8 +210,6 @@ void testApp::setup(){
         points[i].color.g = G;
         points[i].color.b = B;
 	}
-	colorAlphaPixelsOriginal = initColorAlphaPixels(127);
-	colorAlphaPixels = initColorAlphaPixels(4.5);
 }
 
 
@@ -238,10 +240,9 @@ void testApp::draw(){
     //sprintf(speedString, "%i km/h", speed);
     //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
     if(pathLength + pointsPerFrame <= points.size()) {
-        texPoint.loadData(colorAlphaPixelsOriginal, pointWidth, pointHeight, GL_RGBA);
         int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
         if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
-            texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
+            texHead.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
         }
         time_t milliseconds = points[pathLength].time;
         tm time = *localtime(&milliseconds);
