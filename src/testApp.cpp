@@ -38,7 +38,7 @@ struct point {
 vector<point> points;
 int *a0 = new int[2];
 int *viewCoords = new int[2]; // Will indicate the coordinates of the current viewport, relative to the initial point
-bool dragging;
+bool dragging = false, stopped = false;
 int *initCursorPos = new int[2];
 int *initViewCoords = new int[2];
 float zoom = 1;
@@ -181,7 +181,6 @@ void testApp::setup(){
     viewCoords[1] = 0;
     initViewCoords[0] = 0;
     initViewCoords[1] = 0;
-    dragging = false;
 	ofEnableAlphaBlending();
     cout << "Calculated maxSpeed: " << maxSpeed;
     maxSpeed = min(maxSpeed, (float)800); // We assume that we never go faster than 800 km/h, anything higher than that is erroneous data
@@ -217,7 +216,7 @@ void testApp::setup(){
 void testApp::update(){
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
     // Increase the path's length
-    if(!(dragging) && pathLength + pointsPerFrame <= points.size()) {
+    if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
         pathLength += pointsPerFrame;
     }
 }
@@ -229,7 +228,7 @@ void testApp::draw(){
     int speed;
     fbo.begin();
     ofSetColor(255, 255, 255);
-    if(!dragging && pathLength + pointsPerFrame <= points.size()) {
+    if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
         drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1);
     }
     fbo.end();
@@ -288,6 +287,9 @@ void testApp::keyReleased(int key){
         ofDisableAlphaBlending();
         fbo.draw(0, 0);
         ofEnableAlphaBlending();
+    }
+    else if(key == 32) {
+        stopped = !stopped;
     }
 }
 
