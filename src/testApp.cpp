@@ -163,8 +163,8 @@ void testApp::setup(){
 	counter = 0;
 	cout << "About to load the font";
     cout << "\n";
-	speedFont.loadFont("DejaVuSans-ExtraLight.ttf", 20);
-	timeFont.loadFont("DejaVuSans-ExtraLight.ttf", 30);
+	//speedFont.loadFont("DejaVuSans-ExtraLight.ttf", 20);
+	timeFont.loadFont("TerminusMedium-4.38.ttf", 20);
 	cout << "Just loaded the font";
     cout << "\n";
 
@@ -235,7 +235,6 @@ void testApp::draw(){
     ofDisableAlphaBlending();
     fbo.draw(viewCoords[0], viewCoords[1]);
     ofEnableAlphaBlending();
-    ofSetHexColor(0xffffff);
     //sprintf(speedString, "%i km/h", speed);
     //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
     if(pathLength + pointsPerFrame <= points.size()) {
@@ -247,7 +246,8 @@ void testApp::draw(){
         tm time = *localtime(&milliseconds);
         strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
     }
-    timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
+    ofSetHexColor(0x888888);
+    timeFont.drawString(eventTimeString, windowDimensions.x - 160, windowDimensions.y - 20);
 }
 
 
