@@ -40,7 +40,6 @@ int *viewCoords = new int[2]; // Will indicate the coordinates of the current vi
 bool dragging;
 int *initCursorPos = new int[2];
 int *initViewCoords = new int[2];
-int colorChangeStep;
 float zoom = 1;
 unsigned int pathLength = 0;
 int initialPointDiameter = 10;
@@ -180,7 +179,6 @@ void testApp::setup(){
     initViewCoords[1] = 0;
     dragging = false;
 	ofEnableAlphaBlending();
-	colorChangeStep = 1;
     cout << "Calculated maxSpeed: " << maxSpeed;
     maxSpeed = min(maxSpeed, (float)800); // We assume that we never go faster than 800 km/h, anything higher than that is erroneous data
     cout << "maxSpeed: ";
@@ -216,8 +214,6 @@ void testApp::setup(){
 //--------------------------------------------------------------
 void testApp::update(){
     texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
-    // Reset the color of the path's texture
-	colorChangeStep = max(10,int(pathLength/256));
     // Increase the path's length
     if(!(dragging) && pathLength + pointsPerFrame <= points.size()) {
         pathLength += pointsPerFrame;
