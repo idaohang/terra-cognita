@@ -138,7 +138,7 @@ void drawPoints(unsigned int from, unsigned int to) {
         changeColorAlphaPixels(colorAlphaPixels, points[from].color);
         texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
         int X = points[from].unitx*zoom, Y = points[from].unity*zoom;
-        texPoint.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
+        texPoint.draw(X, Y, pointWidth, pointHeight);
         from++;
     }
 }
@@ -219,27 +219,29 @@ void testApp::update(){
     // Reset the color of the path's texture
 	colorChangeStep = max(10,int(pathLength/256));
     // Increase the path's length
-    if(!(dragging) && pathLength < points.size() - pointsPerFrame) {
+    if(!(dragging) && pathLength + pointsPerFrame <= points.size()) {
         pathLength += pointsPerFrame;
     }
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    if(!dragging){
-        int prevX = points[pathLength - 1].unitx*zoom;
-        int prevY = points[pathLength - 1].unity*zoom;
-        int speed;
-        fbo.begin();
-        ofSetColor(255, 255, 255);
-        drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength);
-        fbo.end();
-        ofDisableAlphaBlending();
-        fbo.draw(0, 0);
-        ofEnableAlphaBlending();
-        ofSetHexColor(0xffffff);
-        //sprintf(speedString, "%i km/h", speed);
-        //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
+    int prevX = points[pathLength - 1].unitx*zoom;
+    int prevY = points[pathLength - 1].unity*zoom;
+    int speed;
+    fbo.begin();
+    ofSetColor(255, 255, 255);
+    if(!dragging && pathLength + pointsPerFrame <= points.size()) {
+        drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1);
+    }
+    fbo.end();
+    ofDisableAlphaBlending();
+    fbo.draw(viewCoords[0], viewCoords[1]);
+    ofEnableAlphaBlending();
+    ofSetHexColor(0xffffff);
+    //sprintf(speedString, "%i km/h", speed);
+    //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
+    if(pathLength + pointsPerFrame <= points.size()) {
         texPoint.loadData(colorAlphaPixelsOriginal, pointWidth, pointHeight, GL_RGBA);
         int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
         if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
@@ -248,8 +250,8 @@ void testApp::draw(){
         time_t milliseconds = points[pathLength].time;
         tm time = *localtime(&milliseconds);
         strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
-        timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
     }
+    timeFont.drawString(eventTimeString, windowDimensions.x - 255, windowDimensions.y - 40);
 }
 
 
@@ -269,7 +271,7 @@ void testApp::keyReleased(int key){
         viewCoords[1] *= 1.2;
         fbo.begin();
         ofClear(0, 0, 0, 0);
-        drawPoints(0, pathLength - 41);
+        drawPoints(0, pathLength - pointsPerFrame - 1);
         fbo.end();
         ofDisableAlphaBlending();
         fbo.draw(0, 0);
@@ -284,7 +286,7 @@ void testApp::keyReleased(int key){
         viewCoords[0] *= 0.8;
         fbo.begin();
         ofClear(0, 0, 0, 0);
-        drawPoints(0, pathLength - 41);
+        drawPoints(0, pathLength - pointsPerFrame - 1);
         fbo.end();
         ofDisableAlphaBlending();
         fbo.draw(0, 0);
@@ -306,9 +308,6 @@ void testApp::mouseDragged(int x, int y, int button){
     }
     viewCoords[0] = initViewCoords[0] + x - initCursorPos[0]; // Amount of displacement that we should apply to the viewport
     viewCoords[1] = initViewCoords[1] + y - initCursorPos[1];
-    ofDisableAlphaBlending();
-    fbo.draw(0, 0);
-    ofEnableAlphaBlending();
 }
 
 //--------------------------------------------------------------
@@ -321,13 +320,6 @@ void testApp::mouseReleased(int x, int y, int button){
     dragging = false;
     initViewCoords[0] = viewCoords[0];
     initViewCoords[1] = viewCoords[1];
-    fbo.begin();
-    ofClear(0, 0, 0, 0);
-    drawPoints(0, pathLength - 41);
-    fbo.end();
-    ofDisableAlphaBlending();
-    fbo.draw(0, 0);
-    ofEnableAlphaBlending();
 }
 
 //--------------------------------------------------------------
