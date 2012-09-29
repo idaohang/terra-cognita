@@ -183,7 +183,7 @@ void testApp::setup(){
     initViewCoords[1] = 0;
 	ofEnableAlphaBlending();
     cout << "Calculated maxSpeed: " << maxSpeed;
-    maxSpeed = min(maxSpeed, (float)800); // We assume that we never go faster than 800 km/h, anything higher than that is erroneous data
+    maxSpeed = min(maxSpeed, (float)600); // We assume that we never go faster than 600 km/h, anything higher than that is erroneous data
     cout << "maxSpeed: ";
     cout << maxSpeed;
     cout << "\n";
