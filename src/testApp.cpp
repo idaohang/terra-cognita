@@ -168,7 +168,6 @@ void testApp::setup(){
 	cout << "Just loaded the font";
     cout << "\n";
 
-    ofBackground(0,0,0);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
     texPoint.allocate(initialPointDiameter*initialPointDiameter, initialPointDiameter*initialPointDiameter, GL_RGBA);
     texHead.allocate(initialPointDiameter*initialPointDiameter*4, initialPointDiameter*initialPointDiameter*4, GL_RGBA);
