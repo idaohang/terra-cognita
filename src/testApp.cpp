@@ -22,7 +22,7 @@
 #include <time.h>
 #include "mappero.c"
 
-#define pointsPerFrame 10
+#define pointsPerFrame 20
 #define initialPointDiameter 10
 
 struct point {
@@ -33,27 +33,35 @@ struct point {
     int time;
     float speed;
     ofColor color;
+    int tile; // Indicates which tile this point belongs to
+};
+
+struct tile {
+    bool active;
+    ofFbo fbo;
+    ofPoint position;
 };
 
 vector<point> points;
-int *a0 = new int[2];
-int *viewCoords = new int[2]; // Will indicate the coordinates of the current viewport, relative to the initial point
+vector<tile> tiles;
+vector<int> activeTiles;
+vector<int> activeTilesBefore;
 bool dragging = false, stopped = false;
-int *initCursorPos = new int[2];
-int *initViewCoords = new int[2];
 float zoom = 1;
 unsigned int pathLength = 0;
 int pointWidth = initialPointDiameter*zoom;
 int pointHeight = pointWidth;
 unsigned char * colorAlphaPixels, * colorAlphaPixelsHead;
 ofTexture texPoint, texHead;
-ofFbo fbo;
 ofTrueTypeFont 	speedFont, timeFont;
 MapGeo prev_lon = 0, prev_lat = 0;
 int prev_t = 0;
 int currentSpeed = 0;
 float maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
+ofPoint initialCursorPosition;
 ofPoint windowDimensions;
+ofPoint viewCoords; // Will indicate the coordinates of the current viewport, relative to the initial point
+ofPoint viewCoordsBeforeDrag;
 
 /* Given two points with their latitude and longitude, return the distance between them in Km */
 double latlon2distance(MapGeo lat1, MapGeo lon1, MapGeo lat2, MapGeo lon2) {
@@ -80,7 +88,7 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
     int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
     point newPoint;
     /* These coordinates center the visualization on Berlin */
-    newPoint.unitx = (x - 288170000)/380;
+    newPoint.unitx = (x - 287990000)/380;
     newPoint.unity = (y - 175950000)/380;
     /* These coordinates center the visualization on Barcelona
     newPoint.unitx = (atoi(argv[0]) - 271380000)/380;
@@ -90,13 +98,77 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
     unit2latlon_google(x, y, &lat, &lon);
     double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
     int speed = (int)((double)(distance*3600000)/(double)(max(1, t - prev_t)));
-    if(strcmp(argv[0], "0") != 0 && newPoint.unitx < windowDimensions.x && newPoint.unity > 0 && newPoint.unity < windowDimensions.y){
+    if(strcmp(argv[0], "0") != 0){
         newPoint.time = t;
         newPoint.speed = currentSpeed;
-        points.push_back(newPoint);
         if(speed >= 0) {
             currentSpeed = speed;
         }
+        if(tiles.size() == 0) { // It's the first point; create the first tile for it
+            ofFbo fbo;
+            fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
+            tile newTile;
+            newTile.active = true;
+            newTile.fbo = fbo;
+            newTile.position.x = newPoint.unitx - 0.5*windowDimensions.x;
+            newTile.position.y = newPoint.unity - 0.5*windowDimensions.y;
+            tiles.push_back(newTile);
+            newPoint.tile = 0;
+        }
+        else { // We have to check whether the point belongs to any already existing tile
+            int *minimumTilesOfDistance = new int[2];
+            int i = 0;
+            bool inTiles = false;
+            while(i<tiles.size() && !inTiles) {
+                //if(newPoint.unitx > tiles[i].position.x && newPoint.unitx < tiles[i].position.x + windowDimensions.x && newPoint.unity > tiles[i].position.y && newPoint.unity < tiles[i].position.y + windowDimensions.y) {
+                ofPoint distanceToTile;
+                distanceToTile.set(newPoint.unitx - tiles[i].position.x, newPoint.unity - tiles[i].position.y);
+                if(distanceToTile.x >= 0 && distanceToTile.x < windowDimensions.x && distanceToTile.y >= 0 && distanceToTile.y < windowDimensions.y) {
+                    //cout << "distanceToTile.x: " << distanceToTile.x << "\n";
+                    newPoint.tile = i; // The point belongs to this tile
+                    inTiles = true;
+                    cout << "point in tile: " << i << "\n";
+                }
+                else {
+                    int *tilesOfDistance = new int[2];
+                    tilesOfDistance[0] = distanceToTile.x / int(windowDimensions.x);
+                    if(distanceToTile.x < 0) {
+                        tilesOfDistance[0]--;
+                    }
+                    tilesOfDistance[1] = distanceToTile.y / int(windowDimensions.y);
+                    if(distanceToTile.y < 0) {
+                        tilesOfDistance[1]--;
+                    }
+                    //cout << "tilesOfDistance[0]: " << tilesOfDistance[1] << "\n";
+                    if(minimumTilesOfDistance[0] + minimumTilesOfDistance[1] > tilesOfDistance[0] + tilesOfDistance[1]) {
+                        newPoint.tile = i;
+                        minimumTilesOfDistance = tilesOfDistance;
+                        //cout << "tilesOfDistance[0]: " << tilesOfDistance[0] << "\n";
+                        //cout << "minimumTilesOfDistance[0]: " << minimumTilesOfDistance[0] << "\n";
+                        //cout << "tilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
+                    }
+                    i++;
+                }
+            }
+            if(!inTiles) {
+                /*cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
+                cout << "distance: " << minimumTilesOfDistance[0]*windowDimensions.x << ", " << minimumTilesOfDistance[1]*windowDimensions.y << "\n";
+                cout << "point not in any tile\n";*/
+                if(tiles.size() < 100) {
+                    ofFbo fbo;
+                    fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
+                    tile newTile;
+                    newTile.active = false;
+                    newTile.fbo = fbo;
+                    /*cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
+                    cout << "minimumTilesOfDistance[0]*windowDimensions.x: " << (minimumTilesOfDistance[0])*(windowDimensions.x) << "\n\n\n";*/
+                    newTile.position.x = tiles[newPoint.tile].position.x + minimumTilesOfDistance[0]*windowDimensions.x;
+                    newTile.position.y = tiles[newPoint.tile].position.y + minimumTilesOfDistance[1]*windowDimensions.y;
+                    tiles.push_back(newTile);
+                }
+            }
+        }
+        points.push_back(newPoint);
     }
     if(maxSpeed < currentSpeed) {
         maxSpeed = currentSpeed;
@@ -134,12 +206,58 @@ void changeColorAlphaPixels(unsigned char * pixels, ofColor color) {
 
 void drawPoints(unsigned int from, unsigned int to) {
     while(from < to) {
-        unsigned int speed = abs(points[from].speed);
-        changeColorAlphaPixels(colorAlphaPixels, points[from].color);
-        texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
-        int X = points[from].unitx*zoom, Y = points[from].unity*zoom;
-        texPoint.draw(X, Y, pointWidth, pointHeight);
+        point currentPoint = points[from];
+        if(tiles[currentPoint.tile].active) {
+            ofPoint relativeTilePosition;
+            relativeTilePosition.set(tiles[currentPoint.tile].position.x - viewCoords.x, tiles[currentPoint.tile].position.y - viewCoords.y);
+            ofDisableAlphaBlending();
+            tiles[currentPoint.tile].fbo.draw(relativeTilePosition.x, relativeTilePosition.y);
+            ofEnableAlphaBlending();
+            changeColorAlphaPixels(colorAlphaPixels, currentPoint.color);
+            texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
+            int X = currentPoint.unitx*zoom, Y = currentPoint.unity*zoom;
+            ofPoint tilePosition = tiles[currentPoint.tile].position;
+            texPoint.draw(X - tilePosition.x, Y - tilePosition.y, pointWidth, pointHeight);
+        }
         from++;
+    }
+}
+
+void updateActiveTiles() {
+    activeTilesBefore = activeTiles;
+    activeTiles.clear();
+    for(int i=0; i<tiles.size(); i++) {
+        /*cout << "abs(tiles[" << i <<"].position.x): " << abs(tiles[i].position.x)<< "\n";
+        cout << "viewCoords.x: " << viewCoords.x << "\n";
+        cout << "abs(tiles[" << i <<"].position.y): " << abs(tiles[i].position.y) << "\n";
+        cout << "viewCoords.y: " << viewCoords.y << "\n";*/
+        int relativeX = abs(tiles[i].position.x - viewCoords.x);
+        int relativeY = abs(tiles[i].position.y - viewCoords.y);
+        if(relativeX < windowDimensions.x && relativeY < windowDimensions.y) {
+            cout << "Tile is visible: " << i << "\n";
+            //cout << "relativeX: " << relativeX << "\n";
+            //cout << "relativeY: " << relativeY << "\n";
+            tiles[i].active = true;
+            activeTiles.push_back(i);
+        }
+        else {
+            cout << "Tile is not visible: " << i << "\n";
+            tiles[i].active = false;
+        }
+    }
+    cout << "Number of visible tiles: " << activeTiles.size() << "\n";
+}
+
+void redraw() {
+    for(int i=0; i<activeTiles.size(); i++) {
+        int j = activeTiles[i];
+        if(find(activeTilesBefore.begin(), activeTilesBefore.end(), j) == activeTilesBefore.end()) { // If the tile was already active before, there's no need to redraw it
+            cout << "Draw tile " << j << "\n";
+            tiles[j].fbo.begin();
+            ofClear(0, 0, 0, 0);
+            drawPoints(0, pathLength - pointsPerFrame - 1);
+            tiles[j].fbo.end();
+        }
     }
 }
 
@@ -151,12 +269,17 @@ void testApp::setup(){
     cout << "The program is about to start\n";
     sqlite3 *pathsdb; // "Paths" Database Handler
     rc = sqlite3_open("data/paths.db", &pathsdb);
-    cout << rc;
-    cout << "\n";
+    cout << "sqlite3_open returned " << rc << ".\n";
     char *error_msg = NULL;
     cout << "SQLite query about to be executed\n";
+/*    ofFbo fbo;
+    fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
+    tile newTile;
+    newTile.fbo = fbo;
+    newTile.position.set(0, 0);
+    tiles.push_back(newTile);*/
     rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", sqliteCallback, NULL, &error_msg);
-    cout << rc;
+    cout << "sqlite3_exec returned " << rc << ".\n";
     cout << "\n";
     sqlite3_close(pathsdb);
     alpha = 0;
@@ -175,23 +298,22 @@ void testApp::setup(){
 	colorAlphaPixelsHead = initColorAlphaPixels(initialPointDiameter*2, 127);
 	colorAlphaPixels = initColorAlphaPixels(initialPointDiameter, 4.5);
     texHead.loadData(colorAlphaPixelsHead, initialPointDiameter*2, initialPointDiameter*2, GL_RGBA);
-    fbo.allocate(3500, 3500, GL_RGBA);
 
-    viewCoords[0] = 0;
-    viewCoords[1] = 0;
-    initViewCoords[0] = 0;
-    initViewCoords[1] = 0;
+	activeTiles.push_back(0);
+    viewCoords.x = tiles[0].position.x;
+    viewCoords.y = tiles[0].position.y   ;
+    viewCoordsBeforeDrag.x = viewCoords.x;
+    viewCoordsBeforeDrag.y = viewCoords.y;
 	ofEnableAlphaBlending();
-    cout << "Calculated maxSpeed: " << maxSpeed;
+    cout << "Calculated maxSpeed: " << maxSpeed << "\n";
     maxSpeed = min(maxSpeed, (float)600); // We assume that we never go faster than 600 km/h, anything higher than that is erroneous data
     cout << "maxSpeed: ";
     cout << maxSpeed;
     cout << "\n";
 	maxSpeedHalf = maxSpeed/2;
 	maxSpeedQuarter = maxSpeedHalf/2;
-	cout << "points.size(): ";
-	cout << points.size();
-	cout << "\n";
+	cout << "Number of points: " << points.size() << "\n";
+    cout << "Number of tiles: " << tiles.size() << "\n";
 	for(int i = 0; i < points.size(); i++) {
         unsigned int R = 0, G = 0, B = 0;
         int speed = min(points[i].speed, maxSpeed);
@@ -226,25 +348,36 @@ void testApp::draw(){
     int prevX = points[pathLength - 1].unitx*zoom;
     int prevY = points[pathLength - 1].unity*zoom;
     ofSetColor(255, 255, 255);
-    if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
-        fbo.begin();
-        drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1);
-        fbo.end();
+    //cout << "activeTiles.size(): " << activeTiles.size() << "\n";
+    for(int i=0; i<activeTiles.size(); i++) {
+        int j = activeTiles[i];
+        ofPoint relativeTilePosition;
+        /*cout << "tiles[j].position.x: " << tiles[j].position.x << "\n";
+        cout << "viewCoords.x: " << viewCoords.x << "\n";
+        cout << "tiles[j].position.x - viewCoords.x: " << tiles[j].position.x - viewCoords.x << "\n";*/
+        relativeTilePosition.set(tiles[j].position.x - viewCoords.x, tiles[j].position.y - viewCoords.y);
+        //cout << "relativeTilePosition: " << relativeTilePosition.x << ", " << relativeTilePosition.y << "\n";
+        //cout << "Drawing tile " << j << "\n";
+        if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
+            tiles[j].fbo.begin();
+            drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1);
+            tiles[j].fbo.end();
+        }
+        ofDisableAlphaBlending();
+        tiles[j].fbo.draw(relativeTilePosition.x, relativeTilePosition.y);
+        ofEnableAlphaBlending();
+        if(pathLength + pointsPerFrame <= points.size()) {
+            int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
+            if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
+                texHead.draw(X -viewCoords.x, Y - viewCoords.y, pointWidth, pointHeight);
+            }
+            time_t milliseconds = points[pathLength].time;
+            tm time = *localtime(&milliseconds);
+            strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
+        }
     }
-    ofDisableAlphaBlending();
-    fbo.draw(viewCoords[0], viewCoords[1]);
-    ofEnableAlphaBlending();
     //sprintf(speedString, "%i km/h", speed);
     //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
-    if(pathLength + pointsPerFrame <= points.size()) {
-        int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
-        if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
-            texHead.draw(X+viewCoords[0], Y+viewCoords[1], pointWidth, pointHeight);
-        }
-        time_t milliseconds = points[pathLength].time;
-        tm time = *localtime(&milliseconds);
-        strftime(eventTimeString, 100, "%d\/%m\/%Y", &time);
-    }
     ofSetHexColor(0x888888);
     timeFont.drawString(eventTimeString, windowDimensions.x - 160, windowDimensions.y - 20);
 }
@@ -262,30 +395,20 @@ void testApp::keyReleased(int key){
         pointWidth = max(float(2), initialPointDiameter*zoom);
         pointHeight = pointWidth;
         rescalePoint();
-        viewCoords[0] *= 1.2;
-        viewCoords[1] *= 1.2;
-        fbo.begin();
-        ofClear(0, 0, 0, 0);
-        drawPoints(0, pathLength - pointsPerFrame - 1);
-        fbo.end();
-        ofDisableAlphaBlending();
-        fbo.draw(0, 0);
-        ofEnableAlphaBlending();
+        //viewCoords.x *= 1.2;
+        //viewCoords.y *= 1.2;
+        updateActiveTiles();
+        redraw();
     }
     else if(key == 45) {
         zoom *= 0.8;
         pointWidth = max(float(2), initialPointDiameter*zoom); // At least 3, so that it doesn't disappear
         pointHeight = pointWidth;
         rescalePoint();
-        viewCoords[0] *= 0.8;
-        viewCoords[0] *= 0.8;
-        fbo.begin();
-        ofClear(0, 0, 0, 0);
-        drawPoints(0, pathLength - pointsPerFrame - 1);
-        fbo.end();
-        ofDisableAlphaBlending();
-        fbo.draw(0, 0);
-        ofEnableAlphaBlending();
+        //viewCoords.x *= 0.8;
+        //viewCoords.y *= 0.8;
+        updateActiveTiles();
+        redraw();
     }
     else if(key == 32) {
         stopped = !stopped;
@@ -299,13 +422,12 @@ void testApp::mouseMoved(int x, int y ){
 
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button){
-    if(dragging == false) {
-        initCursorPos[0] = x;
-        initCursorPos[1] = y;
+    if(!dragging) {
+        initialCursorPosition.set(x, y);
         dragging = true;
     }
-    viewCoords[0] = initViewCoords[0] + x - initCursorPos[0]; // Amount of displacement that we should apply to the viewport
-    viewCoords[1] = initViewCoords[1] + y - initCursorPos[1];
+    viewCoords.x = viewCoordsBeforeDrag.x - (x - initialCursorPosition.x); // Amount of displacement that we should apply to the viewport
+    viewCoords.y = viewCoordsBeforeDrag.y - (y - initialCursorPosition.y);
 }
 
 //--------------------------------------------------------------
@@ -315,9 +437,13 @@ void testApp::mousePressed(int x, int y, int button){
 
 //--------------------------------------------------------------
 void testApp::mouseReleased(int x, int y, int button){
-    dragging = false;
-    initViewCoords[0] = viewCoords[0];
-    initViewCoords[1] = viewCoords[1];
+    if(dragging) {
+        dragging = false;
+        viewCoordsBeforeDrag.x = viewCoords.x;
+        viewCoordsBeforeDrag.y = viewCoords.y;
+        updateActiveTiles();
+        redraw();
+    }
 }
 
 //--------------------------------------------------------------
