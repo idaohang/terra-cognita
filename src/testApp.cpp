@@ -225,9 +225,9 @@ void testApp::update(){
 void testApp::draw(){
     int prevX = points[pathLength - 1].unitx*zoom;
     int prevY = points[pathLength - 1].unity*zoom;
+    ofSetColor(255, 255, 255);
     if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
         fbo.begin();
-        ofSetColor(255, 255, 255);
         drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1);
         fbo.end();
     }
