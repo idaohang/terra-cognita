@@ -204,15 +204,10 @@ void changeColorAlphaPixels(unsigned char * pixels, ofColor color) {
     }
 }
 
-void drawPoints(unsigned int from, unsigned int to) {
+void drawPoints(unsigned int from, unsigned int to, unsigned int nTile) {
     while(from < to) {
         point currentPoint = points[from];
-        if(tiles[currentPoint.tile].active) {
-            ofPoint relativeTilePosition;
-            relativeTilePosition.set(tiles[currentPoint.tile].position.x - viewCoords.x, tiles[currentPoint.tile].position.y - viewCoords.y);
-            ofDisableAlphaBlending();
-            tiles[currentPoint.tile].fbo.draw(relativeTilePosition.x, relativeTilePosition.y);
-            ofEnableAlphaBlending();
+        if(currentPoint.tile == nTile) {
             changeColorAlphaPixels(colorAlphaPixels, currentPoint.color);
             texPoint.loadData(colorAlphaPixels, pointWidth, pointHeight, GL_RGBA);
             int X = currentPoint.unitx*zoom, Y = currentPoint.unity*zoom;
@@ -233,30 +228,47 @@ void updateActiveTiles() {
         cout << "viewCoords.y: " << viewCoords.y << "\n";*/
         int relativeX = abs(tiles[i].position.x - viewCoords.x);
         int relativeY = abs(tiles[i].position.y - viewCoords.y);
-        if(relativeX < windowDimensions.x && relativeY < windowDimensions.y) {
-            cout << "Tile is visible: " << i << "\n";
+        if(i != 8 && i != 23 && relativeX >= 0 && relativeX < windowDimensions.x && relativeY >= 0 && relativeY < windowDimensions.y) {
+            cout << "Tile is visible: " << i << "; X: " << tiles[i].position.x << "; Y: " << tiles[i].position.y << "\n";
             //cout << "relativeX: " << relativeX << "\n";
             //cout << "relativeY: " << relativeY << "\n";
             tiles[i].active = true;
             activeTiles.push_back(i);
         }
         else {
-            cout << "Tile is not visible: " << i << "\n";
+            //cout << "Tile is not visible: " << i << "\n";
             tiles[i].active = false;
         }
     }
+    cout << "viewCoords: " << viewCoords.x << ", " << viewCoords.y << "\n";
     cout << "Number of visible tiles: " << activeTiles.size() << "\n";
 }
 
 void redraw() {
+    ofSetColor(255, 255, 255);
     for(int i=0; i<activeTiles.size(); i++) {
         int j = activeTiles[i];
         if(find(activeTilesBefore.begin(), activeTilesBefore.end(), j) == activeTilesBefore.end()) { // If the tile was already active before, there's no need to redraw it
-            cout << "Draw tile " << j << "\n";
-            tiles[j].fbo.begin();
-            ofClear(0, 0, 0, 0);
-            drawPoints(0, pathLength - pointsPerFrame - 1);
-            tiles[j].fbo.end();
+            tile tileToDraw = tiles[j];
+            ofPoint relativeTilePosition;
+            /*cout << "tiles[j].position.x: " << tiles[j].position.x << "\n";
+            cout << "viewCoords.x: " << viewCoords.x << "\n";
+            cout << "tiles[j].position.x - viewCoords.x: " << tiles[j].position.x - viewCoords.x << "\n";*/
+            relativeTilePosition.set(tileToDraw.position.x - viewCoords.x, tileToDraw.position.y - viewCoords.y);
+            //cout << "relativeTilePosition: " << relativeTilePosition.x << ", " << relativeTilePosition.y << "\n";
+            //cout << "Drawing tile " << j << "\n";
+            if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
+                cout << "Draw tile " << j << "\n";
+                tileToDraw.fbo.begin();
+                drawPoints(0, pathLength - 1, j);
+                tileToDraw.fbo.end();
+            }
+            else {
+                cout << "Won't draw tile " << j << "\n";
+            }
+            ofDisableAlphaBlending();
+            tileToDraw.fbo.draw(relativeTilePosition.x, relativeTilePosition.y);
+            ofEnableAlphaBlending();
         }
     }
 }
@@ -272,12 +284,6 @@ void testApp::setup(){
     cout << "sqlite3_open returned " << rc << ".\n";
     char *error_msg = NULL;
     cout << "SQLite query about to be executed\n";
-/*    ofFbo fbo;
-    fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
-    tile newTile;
-    newTile.fbo = fbo;
-    newTile.position.set(0, 0);
-    tiles.push_back(newTile);*/
     rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", sqliteCallback, NULL, &error_msg);
     cout << "sqlite3_exec returned " << rc << ".\n";
     cout << "\n";
@@ -360,7 +366,7 @@ void testApp::draw(){
         //cout << "Drawing tile " << j << "\n";
         if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
             tiles[j].fbo.begin();
-            drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1);
+            drawPoints(max(0, int(pathLength - pointsPerFrame)), pathLength - 1, j);
             tiles[j].fbo.end();
         }
         ofDisableAlphaBlending();
@@ -369,6 +375,14 @@ void testApp::draw(){
         if(pathLength + pointsPerFrame <= points.size()) {
             int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
             if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
+                if(X < viewCoords.x || X >= viewCoords.x + windowDimensions.x) {
+                    viewCoords.x = X - windowDimensions.x*.5;
+                    updateActiveTiles();
+                }
+                if(Y < viewCoords.y || Y >= viewCoords.y + windowDimensions.y) {
+                    viewCoords.y = Y - windowDimensions.y*.5;
+                    updateActiveTiles();
+                }
                 texHead.draw(X -viewCoords.x, Y - viewCoords.y, pointWidth, pointHeight);
             }
             time_t milliseconds = points[pathLength].time;
