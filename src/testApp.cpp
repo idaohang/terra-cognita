@@ -127,7 +127,7 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
                     //cout << "distanceToTile.x: " << distanceToTile.x << "\n";
                     newPoint.tile = i; // The point belongs to this tile
                     inTiles = true;
-                    cout << "point in tile: " << i << "\n";
+                    //cout << "point in tile: " << i << "\n";
                 }
                 else {
                     int *tilesOfDistance = new int[2];
@@ -140,8 +140,8 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
                         tilesOfDistance[1]--;
                     }
                     //cout << "tilesOfDistance[0]: " << tilesOfDistance[1] << "\n";
+                    newPoint.tile = i;
                     if(minimumTilesOfDistance[0] + minimumTilesOfDistance[1] > tilesOfDistance[0] + tilesOfDistance[1]) {
-                        newPoint.tile = i;
                         minimumTilesOfDistance = tilesOfDistance;
                         //cout << "tilesOfDistance[0]: " << tilesOfDistance[0] << "\n";
                         //cout << "minimumTilesOfDistance[0]: " << minimumTilesOfDistance[0] << "\n";
@@ -155,6 +155,12 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
                 cout << "distance: " << minimumTilesOfDistance[0]*windowDimensions.x << ", " << minimumTilesOfDistance[1]*windowDimensions.y << "\n";
                 cout << "point not in any tile\n";*/
                 if(tiles.size() < 100) {
+                    if(tiles.size() < 9) {
+                        cout << "tiles.size(): " << tiles.size() << "; newPoint: " << newPoint.unity << ", " << newPoint.unity << "\n";
+                        cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
+                        cout << "distance: " << minimumTilesOfDistance[0]*windowDimensions.x << ", " << minimumTilesOfDistance[1]*windowDimensions.y << "\n";
+                        cout << "point not in any tile\n";
+                    }
                     ofFbo fbo;
                     fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
                     tile newTile;
@@ -228,8 +234,8 @@ void updateActiveTiles() {
         cout << "viewCoords.y: " << viewCoords.y << "\n";*/
         int relativeX = abs(tiles[i].position.x - viewCoords.x);
         int relativeY = abs(tiles[i].position.y - viewCoords.y);
-        if(i != 8 && i != 23 && relativeX >= 0 && relativeX < windowDimensions.x && relativeY >= 0 && relativeY < windowDimensions.y) {
-            cout << "Tile is visible: " << i << "; X: " << tiles[i].position.x << "; Y: " << tiles[i].position.y << "\n";
+        if(relativeX >= 0 && relativeX < windowDimensions.x && relativeY >= 0 && relativeY < windowDimensions.y) {
+            cout << "Tile " << i << " is visible; X: " << tiles[i].position.x << "; Y: " << tiles[i].position.y << "\n";
             //cout << "relativeX: " << relativeX << "\n";
             //cout << "relativeY: " << relativeY << "\n";
             tiles[i].active = true;
@@ -240,7 +246,7 @@ void updateActiveTiles() {
             tiles[i].active = false;
         }
     }
-    cout << "viewCoords: " << viewCoords.x << ", " << viewCoords.y << "\n";
+    //cout << "viewCoords: " << viewCoords.x << ", " << viewCoords.y << "\n";
     cout << "Number of visible tiles: " << activeTiles.size() << "\n";
 }
 
@@ -258,13 +264,13 @@ void redraw() {
             //cout << "relativeTilePosition: " << relativeTilePosition.x << ", " << relativeTilePosition.y << "\n";
             //cout << "Drawing tile " << j << "\n";
             if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
-                cout << "Draw tile " << j << "\n";
+                //cout << "Draw tile " << j << "\n";
                 tileToDraw.fbo.begin();
                 drawPoints(0, pathLength - 1, j);
                 tileToDraw.fbo.end();
             }
             else {
-                cout << "Won't draw tile " << j << "\n";
+                //cout << "Won't draw tile " << j << "\n";
             }
             ofDisableAlphaBlending();
             tileToDraw.fbo.draw(relativeTilePosition.x, relativeTilePosition.y);
