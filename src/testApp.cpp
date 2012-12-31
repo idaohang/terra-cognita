@@ -398,25 +398,52 @@ void testApp::draw(){
         int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
         if(abs(X - prevX) < 7*zoom && abs(Y - prevY) < 7*zoom) { //Filter out aberrations
             bool bUpdateActiveTiles = false;
-            if(X < viewCoords.x) {
-                viewCoords.x = X;
+            bool reCenter = false;
+            int relativeX = X - viewCoords.x;
+            if(relativeX < 0) {
+                if(relativeX < - windowDimensions.x) {
+                    reCenter = true;
+                }
+                else {
+                    viewCoords.x = X;
+                }
                 bUpdateActiveTiles = true;
             }
-            else if(X >= viewCoords.x + windowDimensions.x) {
-                viewCoords.x = X - windowDimensions.x - 1;
+            else if(relativeX >= windowDimensions.x) {
+                if(relativeX >= windowDimensions.x*2) {
+                    reCenter = true;
+                }
+                else {
+                    viewCoords.x = X - windowDimensions.x - 1;
+                }
                 bUpdateActiveTiles = true;
             }
-            if(Y < viewCoords.y) {
-                viewCoords.y = Y;
+            int relativeY = Y - viewCoords.y;
+            if(relativeY < 0) {
+                if(relativeY < - windowDimensions.y) {
+                    reCenter = true;
+                }
+                else {
+                    viewCoords.y = Y;
+                }
                 bUpdateActiveTiles = true;
             }
             else if(Y >= viewCoords.y + windowDimensions.y) {
-                viewCoords.y = Y - windowDimensions.y - 1;
+                if(relativeY >= windowDimensions.y*2) {
+                    reCenter = true;
+                }
+                else {
+                    viewCoords.y = Y - windowDimensions.y - 1;
+                }
                 bUpdateActiveTiles = true;
             }
             if(bUpdateActiveTiles) {
                 //cout << "viewCoords.x: " << viewCoords.x << " <= X: " << X << " < viewCoords.x + windowDimensions.x: " << viewCoords.x + windowDimensions.x << "\n";
                 //cout << "viewCoords.y: " << viewCoords.y << " <= Y: " << Y << " < viewCoords.y + windowDimensions.y: " << viewCoords.y + windowDimensions.y << "\n";
+                if(reCenter) {
+                    viewCoords.x = X - windowDimensions.x*0.5;
+                    viewCoords.y = Y - windowDimensions.y*0.5;
+                }
                 updateActiveTiles();
             }
             ofSetColor(255, 255, 255, 63);
