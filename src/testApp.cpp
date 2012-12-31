@@ -63,6 +63,7 @@ int currentSpeed = 0;
 float maxSpeed = 0, maxSpeedHalf, maxSpeedQuarter;
 ofPoint initialCursorPosition;
 ofPoint windowDimensions;
+ofPoint tileDimensions;
 ofPoint viewCoords; // Will indicate the coordinates of the current viewport, relative to the initial point
 ofPoint viewCoordsBeforeDrag;
 
@@ -109,12 +110,12 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
         }
         if(tiles.size() == 0) { // It's the first point; create the first tile for it
             ofFbo fbo;
-            fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
+            fbo.allocate(tileDimensions.x, tileDimensions.y, GL_RGBA);
             tile newTile;
             newTile.active = true;
             newTile.fbo = fbo;
-            newTile.position.x = newPoint.unitx - 0.5*windowDimensions.x;
-            newTile.position.y = newPoint.unity - 0.5*windowDimensions.y;
+            newTile.position.x = newPoint.unitx - 0.5*tileDimensions.x;
+            newTile.position.y = newPoint.unity - 0.5*tileDimensions.y;
             tiles.push_back(newTile);
             newPoint.tile = 0;
         }
@@ -123,10 +124,10 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
             int i = 0;
             bool inTiles = false;
             while(i<tiles.size() && !inTiles) {
-                //if(newPoint.unitx > tiles[i].position.x && newPoint.unitx < tiles[i].position.x + windowDimensions.x && newPoint.unity > tiles[i].position.y && newPoint.unity < tiles[i].position.y + windowDimensions.y) {
+                //if(newPoint.unitx > tiles[i].position.x && newPoint.unitx < tiles[i].position.x + tileDimensions.x && newPoint.unity > tiles[i].position.y && newPoint.unity < tiles[i].position.y + tileDimensions.y) {
                 ofPoint distanceToTile;
                 distanceToTile.set(newPoint.unitx - tiles[i].position.x, newPoint.unity - tiles[i].position.y);
-                if(distanceToTile.x >= 0 && distanceToTile.x < windowDimensions.x && distanceToTile.y >= 0 && distanceToTile.y < windowDimensions.y) {
+                if(distanceToTile.x >= 0 && distanceToTile.x < tileDimensions.x && distanceToTile.y >= 0 && distanceToTile.y < tileDimensions.y) {
                     //cout << "distanceToTile.x: " << distanceToTile.x << "\n";
                     newPoint.tile = i; // The point belongs to this tile
                     inTiles = true;
@@ -134,11 +135,11 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
                 }
                 else {
                     int *tilesOfDistance = new int[2];
-                    tilesOfDistance[0] = distanceToTile.x / int(windowDimensions.x);
+                    tilesOfDistance[0] = distanceToTile.x / int(tileDimensions.x);
                     if(distanceToTile.x < 0) {
                         tilesOfDistance[0]--;
                     }
-                    tilesOfDistance[1] = distanceToTile.y / int(windowDimensions.y);
+                    tilesOfDistance[1] = distanceToTile.y / int(tileDimensions.y);
                     if(distanceToTile.y < 0) {
                         tilesOfDistance[1]--;
                     }
@@ -155,18 +156,18 @@ static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName
             }
             if(!inTiles) {
                 /*cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
-                cout << "distance: " << minimumTilesOfDistance[0]*windowDimensions.x << ", " << minimumTilesOfDistance[1]*windowDimensions.y << "\n";
+                cout << "distance: " << minimumTilesOfDistance[0]*tileDimensions.x << ", " << minimumTilesOfDistance[1]*tileDimensions.y << "\n";
                 cout << "point not in any tile\n";*/
                 if(tiles.size() < 100) { // FIXME: rude way to prevent too many tiles from being created
                     ofFbo fbo;
-                    fbo.allocate(windowDimensions.x, windowDimensions.y, GL_RGBA);
+                    fbo.allocate(tileDimensions.x, tileDimensions.y, GL_RGBA);
                     tile newTile;
                     newTile.active = false;
                     newTile.fbo = fbo;
                     cout << "newPoint: " << newPoint.unitx << ", " << newPoint.unity << "\n";
-                    /*cout << "minimumTilesOfDistance[0]*windowDimensions.x: " << (minimumTilesOfDistance[0])*(windowDimensions.x) << "\n\n\n";*/
-                    newTile.position.x = tiles[newPoint.tile].position.x + minimumTilesOfDistance[0]*windowDimensions.x;
-                    newTile.position.y = tiles[newPoint.tile].position.y + minimumTilesOfDistance[1]*windowDimensions.y;
+                    /*cout << "minimumTilesOfDistance[0]*tileDimensions.x: " << (minimumTilesOfDistance[0])*(tileDimensions.x) << "\n\n\n";*/
+                    newTile.position.x = tiles[newPoint.tile].position.x + minimumTilesOfDistance[0]*tileDimensions.x;
+                    newTile.position.y = tiles[newPoint.tile].position.y + minimumTilesOfDistance[1]*tileDimensions.y;
                     cout << "New tile " << tiles.size() << "; " << newTile.position.x << ", " << newTile.position.y << "\n";
                     cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << " to tile " << newPoint.tile << "\n";
                     tiles.push_back(newTile);
@@ -283,6 +284,7 @@ void redraw() {
 void testApp::setup(){
 	windowDimensions.x = ofGetScreenWidth();
 	windowDimensions.y = ofGetScreenHeight();
+	tileDimensions = windowDimensions; // We make the tiles of the same size as the viewport, but may not be necessarily like this
     int rc;
     cout << "The program is about to start\n";
     sqlite3 *pathsdb; // "Paths" Database Handler
