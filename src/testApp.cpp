@@ -22,8 +22,9 @@
 #include <time.h>
 #include "mappero.c"
 
-#define pointsPerFrame 20
+#define pointsPerFrame 10
 #define initialPointDiameter 10
+#define headTail 40
 
 struct point {
     int unitx;
@@ -358,13 +359,13 @@ void testApp::update(){
 void testApp::draw(){
     int prevX = points[pathLength - 1].unitx*zoom;
     int prevY = points[pathLength - 1].unity*zoom;
-    ofSetColor(255, 255, 255);
     //cout << "activeTiles.size(): " << activeTiles.size() << "\n";
     unsigned int nActiveTiles = activeTiles.size();
     if(activeTiles.size() == 0) {
         updateActiveTiles();
     }
     for(unsigned int i=0; i<activeTiles.size(); i++) {
+        ofSetColor(255, 255, 255);
         int j = activeTiles[i];
         ofPoint relativeTilePosition;
         /*cout << "tiles[j].position.x: " << tiles[j].position.x << "\n";
@@ -381,6 +382,15 @@ void testApp::draw(){
         ofDisableAlphaBlending();
         tiles[j].fbo.draw(relativeTilePosition.x, relativeTilePosition.y);
         ofEnableAlphaBlending();
+        int from = max(0, int(pathLength - headTail));
+        for(int nPoint = from; nPoint < pathLength; nPoint++) {
+            ofSetColor(255, 255, 255, 31*(nPoint - from)/(pathLength - from));
+            point currentPoint = points[nPoint];
+            if(currentPoint.tile == j) {
+                int X = currentPoint.unitx*zoom, Y = currentPoint.unity*zoom;
+                texHead.draw(X - viewCoords.x - pointWidthHalf, Y - viewCoords.y - pointHeightHalf, pointWidth, pointHeight);
+            }
+        }
     }
     if(pathLength + pointsPerFrame <= points.size()) {
         int X = points[pathLength - 1].unitx*zoom, Y = points[pathLength - 1].unity*zoom;
@@ -403,11 +413,12 @@ void testApp::draw(){
                 bUpdateActiveTiles = true;
             }
             if(bUpdateActiveTiles) {
-                cout << "viewCoords.x: " << viewCoords.x << " <= X: " << X << " < viewCoords.x + windowDimensions.x: " << viewCoords.x + windowDimensions.x << "\n";
-                cout << "viewCoords.y: " << viewCoords.y << " <= Y: " << Y << " < viewCoords.y + windowDimensions.y: " << viewCoords.y + windowDimensions.y << "\n";
+                //cout << "viewCoords.x: " << viewCoords.x << " <= X: " << X << " < viewCoords.x + windowDimensions.x: " << viewCoords.x + windowDimensions.x << "\n";
+                //cout << "viewCoords.y: " << viewCoords.y << " <= Y: " << Y << " < viewCoords.y + windowDimensions.y: " << viewCoords.y + windowDimensions.y << "\n";
                 updateActiveTiles();
             }
-            texHead.draw(X - viewCoords.x - pointWidthHalf, Y - viewCoords.y - pointHeightHalf, pointWidth, pointHeight);
+            ofSetColor(255, 255, 255, 63);
+            texHead.draw(X - viewCoords.x - pointWidth, Y - viewCoords.y - pointHeight, pointWidth*2, pointHeight*2);
         }
         time_t milliseconds = points[pathLength].time;
         tm time = *localtime(&milliseconds);
