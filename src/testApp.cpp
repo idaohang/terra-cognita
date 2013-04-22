@@ -21,10 +21,10 @@
 #include <iostream>
 #include <time.h>
 #include "mappero.c"
-
-#define pointsPerFrame 10
+#include "ofxXmlSettings.h"
+#define pointsPerFrame 30
 #define initialPointDiameter 10
-#define headTail 40
+#define headTail 20
 
 struct point {
     int unitx;
@@ -47,6 +47,7 @@ vector<point> points;
 vector<tile> tiles;
 vector<int> activeTiles;
 vector<int> activeTilesBefore;
+ofxXmlSettings xmlData;
 bool dragging = false, stopped = false;
 float zoom = 1;
 unsigned int pathLength = 0;
@@ -88,100 +89,107 @@ void rescalePoint() {
     }
 }
 
-static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName){
-    int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
+void newPoint(int x, int y, int t, double distance) {
+    //cout << "distance: " << distance << "\n";
     point newPoint;
-    /* These coordinates center the visualization on Berlin */
-    newPoint.unitx = (x - 287990000)/380;
-    newPoint.unity = (y - 175950000)/380;
-    /* These coordinates center the visualization on Barcelona
-    newPoint.unitx = (atoi(argv[0]) - 271380000)/380;
-    newPoint.unity = (atoi(argv[1]) - 200380000)/380; */
-    MapGeo lat;
-    MapGeo lon;
-    unit2latlon_google(x, y, &lat, &lon);
-    double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
+    newPoint.unitx = x/150;
+    newPoint.unity = y/150;
+    //cout << "newPoint.unitx: " << newPoint.unitx << "\n";
+    //cout << "newPoint.unity: " << newPoint.unity << "\n";
     int speed = (int)((double)(distance*3600000)/(double)(max(1, t - prev_t)));
-    if(strcmp(argv[0], "0") != 0){
-        newPoint.time = t;
-        newPoint.speed = currentSpeed;
-        if(speed >= 0) {
-            currentSpeed = speed;
-        }
-        if(tiles.size() == 0) { // It's the first point; create the first tile for it
-            ofFbo fbo;
-            fbo.allocate(tileDimensions.x, tileDimensions.y, GL_RGBA);
-            tile newTile;
-            newTile.active = true;
-            newTile.fbo = fbo;
-            newTile.position.x = newPoint.unitx - 0.5*tileDimensions.x;
-            newTile.position.y = newPoint.unity - 0.5*tileDimensions.y;
-            tiles.push_back(newTile);
-            newPoint.tile = 0;
-        }
-        else { // We have to check whether the point belongs to any already existing tile
-            int *minimumTilesOfDistance = new int[2];
-            int i = 0;
-            bool inTiles = false;
-            while(i<tiles.size() && !inTiles) {
-                //if(newPoint.unitx > tiles[i].position.x && newPoint.unitx < tiles[i].position.x + tileDimensions.x && newPoint.unity > tiles[i].position.y && newPoint.unity < tiles[i].position.y + tileDimensions.y) {
-                ofPoint distanceToTile;
-                distanceToTile.set(newPoint.unitx - tiles[i].position.x, newPoint.unity - tiles[i].position.y);
-                if(distanceToTile.x >= 0 && distanceToTile.x < tileDimensions.x && distanceToTile.y >= 0 && distanceToTile.y < tileDimensions.y) {
-                    //cout << "distanceToTile.x: " << distanceToTile.x << "\n";
-                    newPoint.tile = i; // The point belongs to this tile
-                    inTiles = true;
-                    //cout << "point in tile: " << i << "\n";
-                }
-                else {
-                    int *tilesOfDistance = new int[2];
-                    tilesOfDistance[0] = distanceToTile.x / int(tileDimensions.x);
-                    if(distanceToTile.x < 0) {
-                        tilesOfDistance[0]--;
-                    }
-                    tilesOfDistance[1] = distanceToTile.y / int(tileDimensions.y);
-                    if(distanceToTile.y < 0) {
-                        tilesOfDistance[1]--;
-                    }
-                    //cout << "tilesOfDistance[0]: " << tilesOfDistance[1] << "\n";
-                    if(i == 0 || abs(minimumTilesOfDistance[0]) + abs(minimumTilesOfDistance[1]) > abs(tilesOfDistance[0]) + abs(tilesOfDistance[1])) {
-                        newPoint.tile = i;
-                        minimumTilesOfDistance = tilesOfDistance;
-                        //cout << "tilesOfDistance[0]: " << tilesOfDistance[0] << "\n";
-                        //cout << "minimumTilesOfDistance[0]: " << minimumTilesOfDistance[0] << "\n";
-                        //cout << "tilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
-                    }
-                    i++;
-                }
-            }
-            if(!inTiles) {
-                /*cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
-                cout << "distance: " << minimumTilesOfDistance[0]*tileDimensions.x << ", " << minimumTilesOfDistance[1]*tileDimensions.y << "\n";
-                cout << "point not in any tile\n";*/
-                if(tiles.size() < 100) { // FIXME: rude way to prevent too many tiles from being created
-                    ofFbo fbo;
-                    fbo.allocate(tileDimensions.x, tileDimensions.y, GL_RGBA);
-                    tile newTile;
-                    newTile.active = false;
-                    newTile.fbo = fbo;
-                    cout << "newPoint: " << newPoint.unitx << ", " << newPoint.unity << "\n";
-                    /*cout << "minimumTilesOfDistance[0]*tileDimensions.x: " << (minimumTilesOfDistance[0])*(tileDimensions.x) << "\n\n\n";*/
-                    newTile.position.x = tiles[newPoint.tile].position.x + minimumTilesOfDistance[0]*tileDimensions.x;
-                    newTile.position.y = tiles[newPoint.tile].position.y + minimumTilesOfDistance[1]*tileDimensions.y;
-                    cout << "New tile " << tiles.size() << "; " << newTile.position.x << ", " << newTile.position.y << "\n";
-                    cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << " to tile " << newPoint.tile << "\n";
-                    tiles.push_back(newTile);
-                    newPoint.tile = tiles.size();
-                }
-            }
-        }
-        points.push_back(newPoint);
+    cout << "t - prev_t: " << t - prev_t << "\n";
+    newPoint.time = t;
+    newPoint.speed = currentSpeed;
+    //cout << "newPoint.speed: " << newPoint.speed << "\n";
+    if(speed >= 0) {
+        currentSpeed = speed;
     }
+    if(tiles.size() == 0) { // It's the first point; create the first tile for it
+        ofFbo fbo;
+        fbo.allocate(tileDimensions.x, tileDimensions.y, GL_RGBA);
+        tile newTile;
+        newTile.active = true;
+        newTile.fbo = fbo;
+        newTile.position.x = newPoint.unitx - 0.5*tileDimensions.x;
+        newTile.position.y = newPoint.unity - 0.5*tileDimensions.y;
+        tiles.push_back(newTile);
+        newPoint.tile = 0;
+    }
+    else { // We have to check whether the point belongs to any already existing tile
+        int *minimumTilesOfDistance = new int[2];
+        int i = 0;
+        bool inTiles = false;
+        while(i<tiles.size() && !inTiles) {
+            //if(newPoint.unitx > tiles[i].position.x && newPoint.unitx < tiles[i].position.x + tileDimensions.x && newPoint.unity > tiles[i].position.y && newPoint.unity < tiles[i].position.y + tileDimensions.y) {
+            ofPoint distanceToTile;
+            distanceToTile.set(newPoint.unitx - tiles[i].position.x, newPoint.unity - tiles[i].position.y);
+            if(distanceToTile.x >= 0 && distanceToTile.x < tileDimensions.x && distanceToTile.y >= 0 && distanceToTile.y < tileDimensions.y) {
+                //cout << "distanceToTile.x: " << distanceToTile.x << "\n";
+                newPoint.tile = i; // The point belongs to this tile
+                inTiles = true;
+                //cout << "point in tile: " << i << "\n";
+            }
+            else {
+                int *tilesOfDistance = new int[2];
+                tilesOfDistance[0] = distanceToTile.x / int(tileDimensions.x);
+                if(distanceToTile.x < 0) {
+                    tilesOfDistance[0]--;
+                }
+                tilesOfDistance[1] = distanceToTile.y / int(tileDimensions.y);
+                if(distanceToTile.y < 0) {
+                    tilesOfDistance[1]--;
+                }
+                //cout << "tilesOfDistance[0]: " << tilesOfDistance[1] << "\n";
+                if(i == 0 || abs(minimumTilesOfDistance[0]) + abs(minimumTilesOfDistance[1]) > abs(tilesOfDistance[0]) + abs(tilesOfDistance[1])) {
+                    newPoint.tile = i;
+                    minimumTilesOfDistance = tilesOfDistance;
+                    //cout << "tilesOfDistance[0]: " << tilesOfDistance[0] << "\n";
+                    //cout << "minimumTilesOfDistance[0]: " << minimumTilesOfDistance[0] << "\n";
+                    //cout << "tilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
+                }
+                i++;
+            }
+        }
+        if(!inTiles) {
+            /*cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << "\n";
+            cout << "distance: " << minimumTilesOfDistance[0]*tileDimensions.x << ", " << minimumTilesOfDistance[1]*tileDimensions.y << "\n";
+            cout << "point not in any tile\n";*/
+            if(tiles.size() < 500) { // FIXME: rude way to prevent too many tiles from being created
+                ofFbo fbo;
+                fbo.allocate(tileDimensions.x, tileDimensions.y, GL_RGBA);
+                tile newTile;
+                newTile.active = false;
+                newTile.fbo = fbo;
+                cout << "newPoint: " << newPoint.unitx << ", " << newPoint.unity << "\n";
+                /*cout << "minimumTilesOfDistance[0]*tileDimensions.x: " << (minimumTilesOfDistance[0])*(tileDimensions.x) << "\n\n\n";*/
+                newTile.position.x = tiles[newPoint.tile].position.x + minimumTilesOfDistance[0]*tileDimensions.x;
+                newTile.position.y = tiles[newPoint.tile].position.y + minimumTilesOfDistance[1]*tileDimensions.y;
+                cout << "New tile " << tiles.size() << "; " << newTile.position.x << ", " << newTile.position.y << "\n";
+                cout << "minimumTilesOfDistance: " << minimumTilesOfDistance[0] << ", " << minimumTilesOfDistance[1] << " to tile " << newPoint.tile << "\n";
+                tiles.push_back(newTile);
+                newPoint.tile = tiles.size();
+            }
+        }
+    }
+    points.push_back(newPoint);
     if(maxSpeed < currentSpeed) {
         maxSpeed = currentSpeed;
     }
-    prev_lon = lon, prev_lat = lat, prev_t = t;
-    return 0;
+}
+
+static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName){
+    if(strcmp(argv[0], "0") != 0) {
+        int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
+        MapGeo lat;
+        MapGeo lon;
+        unit2latlon_google(x, y, &lat, &lon);
+        double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
+        prev_lat = lat;
+        prev_lon = lon;
+        newPoint(x, y, t, distance);
+        prev_t = t;
+        return 0;
+    }
 }
 
 unsigned char * initColorAlphaPixels(int diameter, float brightness) {
@@ -294,8 +302,58 @@ void testApp::setup(){
     cout << "SQLite query about to be executed\n";
     rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", sqliteCallback, NULL, &error_msg);
     cout << "sqlite3_exec returned " << rc << ".\n";
-    cout << "\n";
     sqlite3_close(pathsdb);
+    cout << "\n";
+    ofDirectory gpxDir("./gpx");
+    gpxDir.allowExt(""); // Dummy way of only allowing directories
+    gpxDir.listDir();
+    gpxDir.sort();
+    for(int i = 0; i < gpxDir.numFiles(); i++) {
+        string dirPath = gpxDir.getPath(i);
+        ofDirectory dir(dirPath);
+        dir.allowExt("gpx");
+        dir.listDir();
+        //cout << "dir.numFiles(): " + dir.numFiles() + "\n";
+        for(int i = 0; i < dir.numFiles(); i++) {
+            string filePath = dir.getPath(i);
+            if(xmlData.loadFile(filePath)) {
+                //cout << "loaded XML file\n";
+                if(xmlData.pushTag("gpx")) {
+                    //cout << "gpx tag found\n";
+                    if(xmlData.pushTag("trk")) {
+                        //cout << "trk tag found\n";
+                        if(xmlData.pushTag("trkseg")) {
+                            //cout << "trkseg tag found\n";
+                            int nPoints = xmlData.getNumTags("trkpt");
+                            for(int i = 0; i < nPoints; i++) {
+                                double lat = xmlData.getAttribute("trkpt", "lat", 0.0);
+                                double lon = xmlData.getAttribute("trkpt", "lon", 0.0);
+                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                //cout << "lat: " << lat << "\n";
+                                //cout << "lon: " << lon << "\n";
+                                int x, y;
+                                //cout << "x: " << x << "\n";
+                                //cout << "y: " << y << "\n";
+                                latlon2unit_google(lat, lon, &x, &y);
+                                string time_str = xmlData.getValue("trkpt:time", "0");
+                                char *cstr = new char[time_str.length() + 1];
+                                strcpy(cstr, time_str.c_str());
+                                struct tm tm = { 0 };
+                                strptime(cstr, "%FT%T%z", &tm);
+                                delete [] cstr;
+                                int t = (int) mktime(&tm);
+                                double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
+                                prev_lat = lat;
+                                prev_lon = lon;
+                                newPoint(x, y, t, distance);
+                                prev_t = t;
+                            }
+                        }
+                    }
+                };
+            };
+        }
+    }
     alpha = 0;
 	counter = 0;
 	cout << "About to load the font";
@@ -320,7 +378,7 @@ void testApp::setup(){
     viewCoordsBeforeDrag.y = viewCoords.y;
 	ofEnableAlphaBlending();
     cout << "Calculated maxSpeed: " << maxSpeed << "\n";
-    maxSpeed = min(maxSpeed, (float)600); // We assume that we never go faster than 600 km/h, anything higher than that is erroneous data
+    maxSpeed = min(maxSpeed, (float)600); // We assume that we never go faster than 600 km/h, anything higher than that is erroneous data // FIXME: something is wrong with speed calibration
     cout << "maxSpeed: ";
     cout << maxSpeed;
     cout << "\n";
