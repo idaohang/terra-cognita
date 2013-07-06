@@ -22,7 +22,7 @@
 #include <time.h>
 #include "mappero.c"
 #include "ofxXmlSettings.h"
-#define animate false
+#define animate true
 #define initialPointDiameter 13
 #define headTail 20
 #define eyeDistance 310
@@ -338,9 +338,13 @@ void testApp::setup(){
                         if(xmlData.pushTag("trkseg")) {
                             //cout << "trkseg tag found\n";
                             int nPoints = xmlData.getNumTags("trkpt");
-                            for(int i = 0; i < nPoints; i++) {
+                            for(int i = 0; i < nPoints; i = i+5) {
                                 double lat = xmlData.getAttribute("trkpt", "lat", 0.0);
                                 double lon = xmlData.getAttribute("trkpt", "lon", 0.0);
+                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
                                 xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
                                 //cout << "lat: " << lat << "\n";
                                 //cout << "lon: " << lon << "\n";
