@@ -108,7 +108,7 @@ void ofxFFMPEGVideoWriter::setup(const char* filename, int width, int height) {
             fprintf(stderr, "Could not allocate raw picture buffer\n");
             exit(1);
         } else {
-            printf("allocated picture of size %d (ptr %x), linesize %d %d %d %d\n",ret,(unsigned int)picture->data[0],picture->linesize[0],picture->linesize[1],picture->linesize[2],picture->linesize[3]);
+            printf("allocated picture of size %d (ptr %x), linesize %d %d %d %d\n",ret,reinterpret_cast<uintptr_t>(picture->data[0]),picture->linesize[0],picture->linesize[1],picture->linesize[2],picture->linesize[3]);
         }
         
         picture_rgb24 = avcodec_alloc_frame();
@@ -118,7 +118,7 @@ void ofxFFMPEGVideoWriter::setup(const char* filename, int width, int height) {
             fprintf(stderr,"cannot allocate RGB temp image\n");
             exit(1);
         } else
-            printf("allocated picture of size %d (ptr %x), linesize %d %d %d %d\n",ret,(unsigned int)picture_rgb24->data[0],picture_rgb24->linesize[0],picture_rgb24->linesize[1],picture_rgb24->linesize[2],picture_rgb24->linesize[3]);
+            printf("allocated picture of size %d (ptr %x), linesize %d %d %d %d\n",ret,reinterpret_cast<uintptr_t>(picture_rgb24->data[0]),picture_rgb24->linesize[0],picture_rgb24->linesize[1],picture_rgb24->linesize[2],picture_rgb24->linesize[3]);
 
 
         size = ret;
@@ -129,14 +129,16 @@ void ofxFFMPEGVideoWriter::setup(const char* filename, int width, int height) {
     if (!(fmt->flags & AVFMT_NOFILE)) {
         int ret;
         if ((ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE)) < 0) {
-            fprintf(stderr, "Could not open '%s': %s\n", filename, av_err2str(ret));
+            //fprintf(stderr, "Could not open '%s': %s\n", filename, av_err2str(ret));
+            fprintf(stderr, "Could not open '%s': %s\n", "error while opening the output file");
             exit(1);
         }
     }
     /* Write the stream header, if any. */
     int ret = avformat_write_header(oc, NULL);
     if (ret < 0) {
-        fprintf(stderr, "Error occurred when opening output file: %s\n", av_err2str(ret));
+        //fprintf(stderr, "Error occurred when opening output file: %s\n", av_err2str(ret));
+        fprintf(stderr, "Error occurred when opening output file: %s\n", "error while writing the stream header");
         exit(1);
     }
 
@@ -167,7 +169,8 @@ void ofxFFMPEGVideoWriter::addFrame(const uint8_t* pixels) {
     /* encode the image */
     int ret = avcodec_encode_video2(c, &pkt, picture, &got_packet);
     if (ret < 0) {
-        fprintf(stderr, "Error encoding video frame: %s\n", av_err2str(ret));
+        //fprintf(stderr, "Error encoding video frame: %s\n", av_err2str(ret));
+        fprintf(stderr, "Error encoding video frame: %s\n", "error while encoding the image");
         exit(1);
     }
     /* If size is zero, it means the image was buffered. */
