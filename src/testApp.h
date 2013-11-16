@@ -21,11 +21,11 @@ class testApp : public ofBaseApp{
 		void gotMessage(ofMessage msg);
 
 
-        ofBlendMode blendMode;
+//        ofBlendMode blendMode;
 //        ofImage rainbow;
         float           alpha;
 		float 			counter;
 		char eventTimeString[255];
-		char speedString[255];
+//		char speedString[255];
 };
 

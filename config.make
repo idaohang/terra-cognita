@@ -23,7 +23,9 @@ USER_LDFLAGS =
 # use this to add system libraries for example:
 # USER_LIBS = -lpango
 
-USER_LIBS = -lsqlite3
+#ffmpeg
+LIBS_ffmpeg = -lm -lz -lpthread -lavformat -lavcodec -lavutil -lswscale
+USER_LIBS = $(LIBS_ffmpeg) -lsqlite3
 
 EXCLUDE_FROM_SOURCE="bin,.xcodeproj,obj,.git,.gitignore"
 

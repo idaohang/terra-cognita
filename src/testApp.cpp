@@ -20,9 +20,15 @@
 #include <string.h>
 #include <iostream>
 #include <time.h>
-#include "mappero.c"
 #include "ofxXmlSettings.h"
+#include "ofxFFMPEGVideoWriter.h"
+#include "mappero.c"
+
 #define animate true
+#define saveVideo true
+#define firstPoint 52525
+#define pointsPerFrame 18
+#define lastPoint firstPoint + pointsPerFrame*25*60*10
 #define initialPointDiameter 13
 #define headTail 20
 #define eyeDistance 310
@@ -47,7 +53,7 @@ struct tile {
     ofPoint coordinates;
 };
 
-unsigned int pointsPerFrame = 100;
+unsigned int currentProcessedPoint = 0;
 vector<point> points;
 vector<tile> tiles;
 vector<int> activeTiles;
@@ -72,6 +78,8 @@ ofPoint windowDimensions;
 ofPoint tileDimensions;
 ofPoint viewCoords; // Will indicate the coordinates of the current viewport, relative to the initial point
 ofPoint viewCoordsBeforeDrag;
+ofxFFMPEGVideoWriter videoWriter;
+ofImage ofscreenimg;
 
 /* Given two points with their latitude and longitude, return the distance between them in Km */
 double latlon2distance(MapGeo lat1, MapGeo lon1, MapGeo lat2, MapGeo lon2) {
@@ -192,15 +200,18 @@ void newPoint(int x, int y, int t, double distance) {
 
 static int sqliteCallback(void *NotUsed, int argc, char **argv, char **azColName){
     if(strcmp(argv[0], "0") != 0) {
-        int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
-        MapGeo lat;
-        MapGeo lon;
-        unit2latlon_google(x, y, &lat, &lon);
-        double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
-        prev_lat = lat;
-        prev_lon = lon;
-        newPoint(x, y, t, distance);
-        prev_t = t;
+        if(currentProcessedPoint >= firstPoint && (currentProcessedPoint <= lastPoint || lastPoint == 0)) {
+            int x = atoi(argv[0]), y = atoi(argv[1]), t = atoi(argv[2]);
+            MapGeo lat;
+            MapGeo lon;
+            unit2latlon_google(x, y, &lat, &lon);
+            double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
+            prev_lat = lat;
+            prev_lon = lon;
+            newPoint(x, y, t, distance);
+            prev_t = t;
+        }
+        currentProcessedPoint++;
         return 0;
     }
 }
@@ -301,22 +312,7 @@ void redraw() {
     }
 }
 
-//--------------------------------------------------------------
-void testApp::setup(){
-	windowDimensions.x = ofGetScreenWidth();
-	windowDimensions.y = ofGetScreenHeight();
-	tileDimensions = windowDimensions; // We make the tiles of the same size as the viewport, but may not be necessarily like this
-    int rc;
-    cout << "Preprocessing...\n";
-    sqlite3 *pathsdb; // "Paths" Database Handler
-    rc = sqlite3_open("data/paths.db", &pathsdb);
-    cout << "sqlite3_open returned " << rc << ".\n";
-    char *error_msg = NULL;
-    cout << "SQLite query about to be executed";
-    rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", sqliteCallback, NULL, &error_msg);
-    cout << "sqlite3_exec returned " << rc << ".";
-    sqlite3_close(pathsdb);
-    cout << "\n";
+void processGPXData() {
     ofDirectory gpxDir("./gpx");
     gpxDir.allowExt(""); // Dummy way of only allowing directories
     gpxDir.listDir();
@@ -326,11 +322,11 @@ void testApp::setup(){
         ofDirectory dir(dirPath);
         dir.allowExt("gpx");
         dir.listDir();
-        //cout << "dir.numFiles(): " + dir.numFiles() + "\n";
-        for(int i = 0; i < dir.numFiles(); i++) {
+        //cout << "dir.numFiles(): " << dir.numFiles() << "\n";
+        for(int i = 0; i < dir.numFiles() && (currentProcessedPoint <= lastPoint || lastPoint == 0); i++) {
             string filePath = dir.getPath(i);
             if(xmlData.loadFile(filePath)) {
-                //cout << "loaded XML file\n";
+                cout << "Processing GPX file: " << filePath << "\n";
                 if(xmlData.pushTag("gpx")) {
                     //cout << "gpx tag found\n";
                     if(xmlData.pushTag("trk")) {
@@ -339,31 +335,34 @@ void testApp::setup(){
                             //cout << "trkseg tag found\n";
                             int nPoints = xmlData.getNumTags("trkpt");
                             for(int i = 0; i < nPoints; i = i+5) {
-                                double lat = xmlData.getAttribute("trkpt", "lat", 0.0);
-                                double lon = xmlData.getAttribute("trkpt", "lon", 0.0);
-                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
-                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
-                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
-                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
-                                xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
-                                //cout << "lat: " << lat << "\n";
-                                //cout << "lon: " << lon << "\n";
-                                int x, y;
-                                //cout << "x: " << x << "\n";
-                                //cout << "y: " << y << "\n";
-                                latlon2unit_google(lat, lon, &x, &y);
-                                string time_str = xmlData.getValue("trkpt:time", "0");
-                                char *cstr = new char[time_str.length() + 1];
-                                strcpy(cstr, time_str.c_str());
-                                struct tm tm = { 0 };
-                                strptime(cstr, "%FT%T%z", &tm);
-                                delete [] cstr;
-                                int t = (int) mktime(&tm);
-                                double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
-                                prev_lat = lat;
-                                prev_lon = lon;
-                                newPoint(x, y, t, distance);
-                                prev_t = t;
+                                if(currentProcessedPoint >= firstPoint && (currentProcessedPoint <= lastPoint || lastPoint == 0) ) {
+                                    double lat = xmlData.getAttribute("trkpt", "lat", 0.0);
+                                    double lon = xmlData.getAttribute("trkpt", "lon", 0.0);
+                                    xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                    xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                    xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                    xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                    xmlData.removeTag("trkpt"); // Using the getAttribute method without index and removing every tag we read seems a lot faster than using an index in the getAttribute method
+                                    //cout << "lat: " << lat << "\n";
+                                    //cout << "lon: " << lon << "\n";
+                                    int x, y;
+                                    //cout << "x: " << x << "\n";
+                                    //cout << "y: " << y << "\n";
+                                    latlon2unit_google(lat, lon, &x, &y);
+                                    string time_str = xmlData.getValue("trkpt:time", "0");
+                                    char *cstr = new char[time_str.length() + 1];
+                                    strcpy(cstr, time_str.c_str());
+                                    struct tm tm = { 0 };
+                                    strptime(cstr, "%FT%T%z", &tm);
+                                    delete [] cstr;
+                                    int t = (int) mktime(&tm);
+                                    double distance = latlon2distance(lat, lon, prev_lat, prev_lon);
+                                    prev_lat = lat;
+                                    prev_lon = lon;
+                                    newPoint(x, y, t, distance);
+                                    prev_t = t;
+                                }
+                                currentProcessedPoint++;
                             }
                         }
                     }
@@ -371,29 +370,59 @@ void testApp::setup(){
             };
         }
     }
-    cout << "Proprocessing done\n";
+}
+
+//--------------------------------------------------------------
+void testApp::setup(){
+
+	windowDimensions.x = ofGetViewportWidth();
+	windowDimensions.y = ofGetViewportHeight();
+    cout << "window dimensions: " << windowDimensions.x << ", " << windowDimensions.y << "\n";
+	tileDimensions = windowDimensions; // We make the tiles of the same size as the viewport, but may not be necessarily like this
+    int rc;
+    cout << "Preprocessing SQLite data...\n";
+    sqlite3 *pathsdb; // "Paths" Database Handler
+    rc = sqlite3_open("data/paths.db", &pathsdb);
+    cout << "sqlite3_open returned " << rc << ".\n";
+    char *error_msg = NULL;
+    cout << "sqlite3_exec query about to be executed\n";
+    rc = sqlite3_exec(pathsdb, "select unitx, unity, time from track_path", sqliteCallback, NULL, &error_msg);
+    cout << "sqlite3_exec returned " << rc << ".\n";
+    rc = sqlite3_close(pathsdb);
+    cout << "sqlite3_close returned " << rc << ".\n";
+    cout << "Preprocessing GPX data...\n";
+    processGPXData();
+    cout << "Preprocessing done\n";
     alpha = 0;
 	counter = 0;
-	//cout << "About to load the font";
-    //cout << "\n";
+	cout << "About to load the font\n";
 	//speedFont.loadFont("DejaVuSans-ExtraLight.ttf", 20);
 	timeFont.loadFont("TerminusMedium-4.38.ttf", 20);
-	//cout << "Just loaded the font";
-    //cout << "\n";
+	cout << "Just loaded the font\n";
 
     ofBackground(0,0,0);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
+    
+    cout << "Display ready\n";
+    
     texPoint.allocate(initialPointDiameter*initialPointDiameter, initialPointDiameter*initialPointDiameter, GL_RGBA);
     texHead.allocate(initialPointDiameter*initialPointDiameter*4, initialPointDiameter*initialPointDiameter*4, GL_RGBA);
 	colorAlphaPixelsHead = initColorAlphaPixels(initialPointDiameter*2, 127);
 	colorAlphaPixels = initColorAlphaPixels(initialPointDiameter, 4.5);
     texHead.loadData(colorAlphaPixelsHead, initialPointDiameter*2, initialPointDiameter*2, GL_RGBA);
 
+    cout << "Textures ready\n";
+
 	activeTiles.push_back(0);
-    viewCoords.x = tiles[0].position.x;
-    viewCoords.y = tiles[0].position.y   ;
-    viewCoordsBeforeDrag.x = viewCoords.x;
-    viewCoordsBeforeDrag.y = viewCoords.y;
+    
+    cout << "Initialized list of active tiles\n";
+    
+    if(tiles.size() > 0) {
+        viewCoords.x = tiles[0].position.x;
+        viewCoords.y = tiles[0].position.y   ;
+        viewCoordsBeforeDrag.x = viewCoords.x;
+        viewCoordsBeforeDrag.y = viewCoords.y;
+    }
 	ofEnableAlphaBlending();
     cout << "Calculated maxSpeed: " << maxSpeed << "\n";
     maxSpeed = min(maxSpeed, (float)600); // We assume that we never go faster than 600 km/h, anything higher than that is erroneous data
@@ -421,6 +450,17 @@ void testApp::setup(){
         points[i].color.g = G;
         points[i].color.b = B;
 	}
+    if(saveVideo) {
+        string dirPath = "video";
+        if(!ofDirectory::doesDirectoryExist(dirPath, true)) {
+            ofDirectory::createDirectory(dirPath, true);
+        }
+        std::stringstream filename;
+        unsigned int lastPointProcessed = points.size() + firstPoint;
+        filename << ofToDataPath(dirPath) << "/path[" << firstPoint << "-" << lastPointProcessed << "].mpg";
+        cout << "Output video file path: " << filename.str() << "\n";
+        videoWriter.setup(filename.str().c_str(), windowDimensions.x, windowDimensions.y);
+    }
 }
 
 
@@ -430,6 +470,11 @@ void testApp::update(){
     // Increase the path's length
     if(!dragging && !stopped && pathLength + pointsPerFrame <= points.size()) {
         pathLength = min(pathLength + pointsPerFrame, (unsigned int)points.size() - 1);
+    }
+    if(saveVideo) {
+        ofscreenimg.grabScreen(0, 0, windowDimensions.x, windowDimensions.y);
+        videoWriter.addFrame((const uint8_t*)(ofscreenimg.getPixels()));
+        cout << pathLength << " points\n";
     }
 }
 
@@ -539,6 +584,9 @@ void testApp::draw(){
     }
     else {
         if(!imagesSaved) {
+            if(saveVideo) {
+                videoWriter.close();
+            }
             std::stringstream dirPath;
             float ratio = (float)relativeZoom*eyeDistance;
             cout << "ratio: " << ratio << "\n";
@@ -566,7 +614,7 @@ void testApp::draw(){
     }
     //sprintf(speedString, "%i km/h", speed);
     //speedFont.drawString(speedString, windowDimensions.x - 420, windowDimensions.y - 40);
-    ofSetHexColor(0x888888);
+    ofSetHexColor(0x666666);
     timeFont.drawString(eventTimeString, windowDimensions.x - 160, windowDimensions.y - 20);
 }
 
